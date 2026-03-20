@@ -42,6 +42,14 @@ async function crawlProductDetail(oliveyoung_id) {
   try {
     const url = `https://www.oliveyoung.co.kr/store/goods/getGoodsDetail.do?goodsNo=${oliveyoung_id}`;
     await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
+    // 실제 상품명 엘리먼트가 렌더링될 때까지 대기
+    await page.waitForFunction(
+      () => {
+        const title = document.querySelector('meta[property="og:title"]')?.content ?? "";
+        return title.length > 0 && !title.includes("잠시만");
+      },
+      { timeout: 15000 }
+    ).catch(() => {}); // 타임아웃 시 그냥 진행
 
     const detail = await page.evaluate(() => {
       const rawTitle = document.querySelector('meta[property="og:title"]')?.content ?? document.title;
