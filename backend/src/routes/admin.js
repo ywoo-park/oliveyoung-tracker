@@ -43,4 +43,10 @@ router.delete("/products/:id", (req, res) => {
   res.json({ success: true });
 });
 
+router.delete("/rankings/all", (req, res) => {
+  const { count } = db.prepare("SELECT COUNT(*) AS count FROM rankings").get();
+  db.prepare("DELETE FROM rankings").run();
+  res.json({ deleted: count });
+});
+
 module.exports = router;
