@@ -56,6 +56,15 @@ router.get("/rankings/stats", (req, res) => {
       WHERE product_id = ? AND category = ? AND rank IS NOT NULL
     `).get(p.id, category);
 
+    // 가장 최근 크롤링 순위
+    const latest = db.prepare(`
+      SELECT rank, crawled_at
+      FROM rankings
+      WHERE product_id = ? AND category = ?
+      ORDER BY crawled_at DESC
+      LIMIT 1
+    `).get(p.id, category);
+
     return {
       id: p.id,
       name: p.name,
@@ -70,10 +79,32 @@ router.get("/rankings/stats", (req, res) => {
       avg_rank_7d: avg7d?.avg ?? null,
       avg_rank_prev_7d: avgPrev7d?.avg ?? null,
       tracked_days: tracked?.days ?? 0,
+      latest_rank: latest?.rank ?? null,
+      latest_crawled_at: latest?.crawled_at ?? null,
     };
   });
 
   res.json(stats);
+});
+
+// 시간별 순위 (당일/특정일 차트용)
+router.get("/rankings/hourly", (req, res) => {
+  const { category = "전체", date } = req.query;
+  const targetDate = date || new Date().toLocaleDateString("sv-SE"); // YYYY-MM-DD
+
+  const rows = db.prepare(`
+    SELECT p.id AS product_id, p.name, p.oliveyoung_id,
+           strftime('%Y-%m-%d %H:00:00', r.crawled_at) AS hour,
+           MIN(r.rank) AS best_rank
+    FROM rankings r
+    JOIN products p ON r.product_id = p.id
+    WHERE r.category = ? AND date(r.crawled_at) = ?
+      AND r.rank IS NOT NULL
+    GROUP BY p.id, strftime('%Y-%m-%d %H:00:00', r.crawled_at)
+    ORDER BY hour ASC
+  `).all(category, targetDate);
+
+  res.json(rows);
 });
 
 // 일별 최고 순위 (차트용)
@@ -82,7 +113,8 @@ router.get("/rankings/daily-best", (req, res) => {
 
   let query = `
     SELECT p.id AS product_id, p.name, p.oliveyoung_id,
-           date(r.crawled_at) AS date, MIN(r.rank) AS best_rank
+           date(r.crawled_at) AS date, MIN(r.rank) AS best_rank,
+           MIN(r.crawled_at) AS crawled_at
     FROM rankings r
     JOIN products p ON r.product_id = p.id
     WHERE r.category = ? AND r.rank IS NOT NULL
