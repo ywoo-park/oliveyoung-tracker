@@ -14,6 +14,7 @@ async function newBrowser() {
       "--no-sandbox",
       "--disable-setuid-sandbox",
       "--disable-dev-shm-usage",
+      "--disable-blink-features=AutomationControlled",
       "--lang=ko-KR",
     ],
   });
@@ -25,6 +26,11 @@ async function setupPage(browser) {
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
   );
   await page.setExtraHTTPHeaders({ "Accept-Language": "ko-KR,ko;q=0.9" });
+  await page.setViewport({ width: 1280, height: 800 });
+  // webdriver 플래그 제거
+  await page.evaluateOnNewDocument(() => {
+    Object.defineProperty(navigator, "webdriver", { get: () => undefined });
+  });
   return page;
 }
 
