@@ -4,6 +4,7 @@ const { startScheduler } = require("./scheduler");
 const { crawlAll } = require("./crawler");
 const adminRoutes = require("./routes/admin");
 const dashboardRoutes = require("./routes/dashboard");
+const { initDb } = require("./db");
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -24,7 +25,8 @@ app.post("/api/crawl", async (req, res) => {
   await crawlAll();
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
+  await initDb();
   console.log(`[Server] http://localhost:${PORT}`);
   startScheduler();
 });
