@@ -1,5 +1,5 @@
 const puppeteer = require("puppeteer");
-const db = require("./db");
+const { pool } = require("./db");
 
 const CATEGORIES = {
   전체: "https://www.oliveyoung.co.kr/store/main/getBestList.do?pageIdx=1&rowsPerPage=100",
@@ -102,7 +102,7 @@ async function fetchRanking(page, url) {
 async function crawlAll() {
   console.log(`[Crawler] 랭킹 크롤링 시작 - ${new Date().toLocaleString("ko-KR")}`);
 
-  const products = db.prepare("SELECT id, oliveyoung_id FROM products").all();
+  const { rows: products } = await pool.query("SELECT id, oliveyoung_id FROM products");
   if (products.length === 0) {
     console.log("[Crawler] 등록된 상품 없음, 종료");
     return;
@@ -111,10 +111,6 @@ async function crawlAll() {
   const browser = await newBrowser();
   const page = await setupPage(browser);
 
-  const insertRanking = db.prepare(
-    "INSERT INTO rankings (product_id, category, rank) VALUES (?, ?, ?)"
-  );
-
   for (const [category, url] of Object.entries(CATEGORIES)) {
     try {
       const rankings = await fetchRanking(page, url);
@@ -122,7 +118,10 @@ async function crawlAll() {
 
       for (const product of products) {
         const rank = rankings[product.oliveyoung_id] ?? null;
-        insertRanking.run(product.id, category, rank);
+        await pool.query(
+          "INSERT INTO rankings (product_id, category, rank) VALUES ($1, $2, $3)",
+          [product.id, category, rank]
+        );
         console.log(`[Crawler] ${category} - ${product.oliveyoung_id}: ${rank ?? "순위권 밖"}`);
       }
     } catch (err) {
