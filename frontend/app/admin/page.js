@@ -116,7 +116,7 @@ export default function AdminPage() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-base font-bold text-gray-900">수동 크롤링</h2>
-            <p className="text-sm text-gray-400 mt-0.5">매시 정각 자동 실행</p>
+            <p className="text-sm text-gray-400 mt-0.5">매시 10분 자동 실행</p>
           </div>
           <button
             onClick={handleCrawl}
