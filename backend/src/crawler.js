@@ -86,9 +86,17 @@ async function fetchRanking(page, url) {
   await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
 
   await page.waitForFunction(
-    () => document.querySelectorAll("a[href*='goodsNo'][href*='t_number']").length > 0,
-    { timeout: 10000 }
+    () => document.querySelectorAll("a[href*='goodsNo']").length > 0,
+    { timeout: 15000 }
   ).catch(() => {});
+
+  const debug = await page.evaluate(() => {
+    const all = document.querySelectorAll("a[href*='goodsNo']").length;
+    const withRank = document.querySelectorAll("a[href*='goodsNo'][href*='t_number']").length;
+    const sample = document.querySelector("a[href*='goodsNo']")?.getAttribute("href") ?? "없음";
+    return { all, withRank, sample };
+  });
+  console.log(`[Crawler] DOM 확인 - goodsNo 전체: ${debug.all}, t_number 포함: ${debug.withRank}, 샘플: ${debug.sample}`);
 
   return page.evaluate(() => {
     const result = {};
