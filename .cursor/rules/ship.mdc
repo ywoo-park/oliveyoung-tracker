@@ -1,0 +1,50 @@
+---
+description: 작업 완료 후 커밋/푸시/PR을 한 번에 처리하는 배포 규칙
+globs:
+alwaysApply: false
+---
+
+# 배포 규칙 (commit → push → PR)
+
+사용자가 아래와 같이 요청하면 이 규칙을 따른다:
+- "배포해줘", "PR 만들어줘", "올려줘", "작업 완료", "ship", "배포"
+
+## 실행 순서
+
+### 1. 변경사항 확인
+```bash
+git status
+git diff --staged
+git diff
+```
+
+### 2. 커밋 메시지 자성
+- 변경된 파일과 내용을 분석해서 한국어로 커밋 메시지를 작성한다
+- 형식: `<type>: <내용>`
+- type 종류: feat(기능추가), fix(버그수정), chore(설정변경), style(UI변경), docs(문서)
+
+### 3. 커밋 & 푸시
+```bash
+git add .
+git commit -m "<자동 생성한 커밋 메시지>"
+git push origin develop
+```
+
+### 4. PR 생성 (develop → main)
+```bash
+GH_HOST=github.com gh pr create \
+  --repo ywoo-park/oliveyoung-tracker \
+  --base main \
+  --head develop \
+  --title "<커밋 메시지와 동일>" \
+  --body "## Summary\n\n- <변경 내용 요약>"
+```
+
+### 5. 완료 안내
+- PR 링크를 사용자에게 알려준다
+- Slack #oliveyoung-tracker 채널에 알림이 자동으로 갑니다 라고 안내한다
+
+## 주의사항
+- 변경사항이 없으면 "변경된 파일이 없습니다" 라고 안내한다
+- 에러 발생 시 원인을 쉬운 말로 설명한다
+- 커밋 메시지는 비개발자도 이해할 수 있게 작성한다
