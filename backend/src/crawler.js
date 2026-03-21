@@ -90,14 +90,6 @@ async function fetchRanking(page, url) {
     { timeout: 15000 }
   ).catch(() => {});
 
-  const debug = await page.evaluate(() => {
-    const all = document.querySelectorAll("a[href*='goodsNo']").length;
-    const withRank = document.querySelectorAll("a[href*='goodsNo'][href*='t_number']").length;
-    const sample = document.querySelector("a[href*='goodsNo']")?.getAttribute("href") ?? "없음";
-    return { all, withRank, sample };
-  });
-  console.log(`[Crawler] DOM 확인 - goodsNo 전체: ${debug.all}, t_number 포함: ${debug.withRank}, 샘플: ${debug.sample}`);
-
   return page.evaluate(() => {
     const result = {};
     document.querySelectorAll("a[href*='goodsNo'][href*='t_number']").forEach((el) => {
