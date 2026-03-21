@@ -1,3 +1,5 @@
 node_modules/
 *.db
 .env
+tmp_review_page.html
+tmp_*.html
