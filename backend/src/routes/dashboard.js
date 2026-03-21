@@ -32,7 +32,7 @@ router.get("/rankings/stats", (req, res) => {
         SELECT date(crawled_at) AS d, MIN(rank) AS best_rank
         FROM rankings
         WHERE product_id = ? AND category = ? AND rank IS NOT NULL
-          AND date(crawled_at) >= date('now', '-7 days')
+          AND date(crawled_at) >= date('now', '+9 hours', '-7 days')
         GROUP BY d
       )
     `).get(p.id, category);
@@ -43,8 +43,8 @@ router.get("/rankings/stats", (req, res) => {
         SELECT date(crawled_at) AS d, MIN(rank) AS best_rank
         FROM rankings
         WHERE product_id = ? AND category = ? AND rank IS NOT NULL
-          AND date(crawled_at) >= date('now', '-14 days')
-          AND date(crawled_at) < date('now', '-7 days')
+          AND date(crawled_at) >= date('now', '+9 hours', '-14 days')
+          AND date(crawled_at) < date('now', '+9 hours', '-7 days')
         GROUP BY d
       )
     `).get(p.id, category);
