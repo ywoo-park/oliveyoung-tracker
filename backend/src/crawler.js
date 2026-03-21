@@ -85,6 +85,11 @@ async function crawlProductDetail(oliveyoung_id) {
 async function fetchRanking(page, url) {
   await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
 
+  await page.waitForFunction(
+    () => document.querySelectorAll("a[href*='goodsNo'][href*='t_number']").length > 0,
+    { timeout: 10000 }
+  ).catch(() => {});
+
   return page.evaluate(() => {
     const result = {};
     document.querySelectorAll("a[href*='goodsNo'][href*='t_number']").forEach((el) => {
