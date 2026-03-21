@@ -34,6 +34,14 @@ async function setupPage(browser) {
   return page;
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function randInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
 function parsePrice(text) {
   if (!text) return null;
   const num = text.replace(/[^0-9]/g, "");
@@ -142,4 +150,148 @@ async function crawlAll() {
   console.log("[Crawler] 랭킹 크롤링 완료");
 }
 
-module.exports = { crawlAll, crawlProductDetail };
+function extractGoodsNoFromUrl(url) {
+  try {
+    const parsed = new URL(url);
+    return parsed.searchParams.get("goodsNo");
+  } catch {
+    return null;
+  }
+}
+
+async function crawlLatestReviewsByProductUrl(productUrl, limit = 100) {
+  const goodsNo = extractGoodsNoFromUrl(productUrl);
+  if (!goodsNo) {
+    throw new Error("URL에서 goodsNo를 찾을 수 없습니다.");
+  }
+
+  const browser = await newBrowser();
+  const page = await setupPage(browser);
+  const reviewUrl = `https://www.oliveyoung.co.kr/store/goods/getGoodsDetail.do?goodsNo=${goodsNo}&tab=review`;
+
+  try {
+    const collected = [];
+    const seenReviewIds = new Set();
+    const onResponse = async (res) => {
+      try {
+        const req = res.request();
+        if (
+          !res.url().includes("/review/api/v2/reviews") ||
+          req.method() !== "POST" ||
+          res.status() !== 200
+        ) {
+          return;
+        }
+        const body = await res.json().catch(() => null);
+        const list = Array.isArray(body?.data) ? body.data : [];
+        list.forEach((item) => {
+          const rid = item?.reviewId;
+          const text = (item?.content || "").replace(/\s+/g, " ").trim();
+          const created = item?.createdDateTime || "";
+          if (!text || text.length < 8 || text.length > 400) return;
+          if (rid && seenReviewIds.has(rid)) return;
+          if (rid) seenReviewIds.add(rid);
+          collected.push({ text, created });
+        });
+      } catch {
+        // response 파싱 실패는 무시하고 계속 수집
+      }
+    };
+    page.on("response", onResponse);
+    const collectRound = async (roundIdx) => {
+      await page.goto(reviewUrl, { waitUntil: "networkidle2", timeout: 45000 });
+      await sleep(randInt(1200, 2200));
+
+      // 사람이 탐색하는 것처럼 스크롤을 섞어 요청 패턴을 분산
+      await page.evaluate(() => {
+        window.scrollTo({ top: document.body.scrollHeight * 0.25, behavior: "instant" });
+      }).catch(() => {});
+      await sleep(randInt(250, 700));
+      await page.evaluate(() => {
+        window.scrollTo({ top: document.body.scrollHeight * 0.55, behavior: "instant" });
+      }).catch(() => {});
+      await sleep(randInt(300, 800));
+      await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" })).catch(() => {});
+
+      const clickLimit = 8 + roundIdx * 4;
+      for (let i = 0; i < clickLimit; i += 1) {
+        const clicked = await page.evaluate(() => {
+          const candidates = Array.from(document.querySelectorAll("button, a, span"));
+          const button = candidates.find((el) => {
+            const text = (el.textContent || "").trim();
+            return text === "리뷰 더보기" || text.includes("리뷰 더보기");
+          });
+          if (!button) return false;
+          button.click();
+          return true;
+        });
+        if (!clicked) break;
+        await sleep(randInt(500, 1100));
+        if (collected.length >= limit) break;
+      }
+
+      const pageSize = 20;
+      const targetPages = Math.max(3, Math.ceil((limit * 2) / pageSize));
+      for (let pageIdx = 0; pageIdx < targetPages; pageIdx += 1) {
+        await page.evaluate(
+          async ({ targetGoodsNo, page, size }) => {
+            await fetch("https://m.oliveyoung.co.kr/review/api/v2/reviews", {
+              method: "POST",
+              mode: "cors",
+              credentials: "include",
+              headers: {
+                "content-type": "application/json",
+                accept: "application/json, text/plain, */*",
+              },
+              body: JSON.stringify({
+                goodsNumber: targetGoodsNo,
+                page,
+                size,
+                sortType: "USEFUL_SCORE_DESC",
+                reviewType: "ALL",
+              }),
+            }).catch(() => null);
+          },
+          { targetGoodsNo: goodsNo, page: pageIdx, size: pageSize }
+        );
+        await sleep(randInt(350, 900));
+        if (collected.length >= limit) break;
+      }
+    };
+
+    // 단일 세션 실패를 대비해 같은 URL을 여러 라운드로 다시 시도
+    for (let round = 0; round < 3; round += 1) {
+      await collectRound(round);
+      if (collected.length >= limit) break;
+      await sleep(randInt(900, 1800));
+    }
+
+    page.off("response", onResponse);
+
+    const reviews = collected
+      // 최근순 정렬 (YYYY.MM.DD 포맷을 숫자 비교 가능한 YYYYMMDD로 변환)
+      .sort((a, b) => {
+        const aa = (a.created || "").replace(/\./g, "");
+        const bb = (b.created || "").replace(/\./g, "");
+        return bb.localeCompare(aa);
+      })
+      .map((item) => item.text);
+
+    const uniqueReviews = Array.from(new Set(reviews)).slice(0, limit);
+
+    if (!uniqueReviews.length) {
+      throw new Error("리뷰를 찾지 못했습니다. 셀렉터가 변경됐을 수 있습니다.");
+    }
+
+    return {
+      goodsNo,
+      sourceUrl: reviewUrl,
+      count: uniqueReviews.length,
+      reviews: uniqueReviews,
+    };
+  } finally {
+    await browser.close();
+  }
+}
+
+module.exports = { crawlAll, crawlProductDetail, crawlLatestReviewsByProductUrl };
