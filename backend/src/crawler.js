@@ -2,7 +2,7 @@ const puppeteer = require("puppeteer");
 const { pool } = require("./db");
 
 const CATEGORIES = {
-  전체: "https://www.oliveyoung.co.kr/store/main/getBestList.do?pageIdx=1&rowsPerPage=100",
+  전체: "https://www.oliveyoung.co.kr/store/main/getBestList.do?dispCatNo=900000100100001&fltDispCatNo=&pageIdx=1&rowsPerPage=100",
   메이크업: "https://www.oliveyoung.co.kr/store/main/getBestList.do?dispCatNo=900000100100001&fltDispCatNo=10000010002&pageIdx=1&rowsPerPage=100",
 };
 
