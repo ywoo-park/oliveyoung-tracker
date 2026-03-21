@@ -14,6 +14,7 @@ export default function Nav() {
         </span>
         <div className="flex gap-1">
           {[
+            { href: '/', label: '리뷰 인사이트' },
             { href: '/dashboard', label: '대시보드' },
             { href: '/admin', label: '어드민' },
           ].map(({ href, label }) => (
@@ -21,7 +22,9 @@ export default function Nav() {
               key={href}
               href={href}
               className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
-                pathname.startsWith(href)
+                href === '/'
+                  ? pathname === '/'
+                  : pathname.startsWith(href)
                   ? 'bg-[#6366F1] text-white'
                   : 'text-gray-500 hover:bg-gray-100'
               }`}
