@@ -42,43 +42,47 @@ function parsePrice(text) {
 
 // 상품 상세 정보(이름, 이미지, 가격) 크롤링
 async function crawlProductDetail(oliveyoung_id) {
-  const browser = await newBrowser();
-  const page = await setupPage(browser);
+  const url = `https://www.oliveyoung.co.kr/store/goods/getGoodsDetail.do?goodsNo=${oliveyoung_id}`;
 
-  try {
-    const url = `https://www.oliveyoung.co.kr/store/goods/getGoodsDetail.do?goodsNo=${oliveyoung_id}`;
-    await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
-    // 실제 상품명 엘리먼트가 렌더링될 때까지 대기
-    await page.waitForFunction(
-      () => {
-        const title = document.querySelector('meta[property="og:title"]')?.content ?? "";
-        return title.length > 0 && !title.includes("잠시만");
-      },
-      { timeout: 15000 }
-    ).catch(() => {}); // 타임아웃 시 그냥 진행
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const browser = await newBrowser();
+    const page = await setupPage(browser);
 
-    const detail = await page.evaluate(() => {
-      const rawTitle = document.querySelector('meta[property="og:title"]')?.content ?? document.title;
-      const name = rawTitle.replace(/\s*\|\s*올리브영.*$/, "").trim();
-      const image_url = document.querySelector('meta[property="og:image"]')?.content ?? null;
-      const priceBeforeEl = document.querySelector('[class*=GoodsDetailInfo_price-before]');
-      const priceEl = document.querySelector('[class*=GoodsDetailInfo_price__]');
-      return {
-        name,
-        image_url,
-        priceText: priceBeforeEl?.innerText?.trim() ?? null,
-        salePriceText: priceEl?.innerText?.trim() ?? null,
-      };
-    });
+    try {
+      await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
+      await page.waitForFunction(
+        () => {
+          const title = document.querySelector('meta[property="og:title"]')?.content ?? "";
+          return title.length > 0 && !title.includes("잠시만");
+        },
+        { timeout: 15000 }
+      );
 
-    const price = parsePrice(detail.priceText);
-    const sale_price = parsePrice(detail.salePriceText);
+      const detail = await page.evaluate(() => {
+        const rawTitle = document.querySelector('meta[property="og:title"]')?.content ?? document.title;
+        const name = rawTitle.replace(/\s*\|\s*올리브영.*$/, "").trim();
+        const image_url = document.querySelector('meta[property="og:image"]')?.content ?? null;
+        const priceBeforeEl = document.querySelector('[class*=GoodsDetailInfo_price-before]');
+        const priceEl = document.querySelector('[class*=GoodsDetailInfo_price__]');
+        return {
+          name,
+          image_url,
+          priceText: priceBeforeEl?.innerText?.trim() ?? null,
+          salePriceText: priceEl?.innerText?.trim() ?? null,
+        };
+      });
 
-    console.log(`[Crawler] 상품 정보 - ${detail.name} / 정가: ${price} / 할인가: ${sale_price}`);
-
-    return { name: detail.name, image_url: detail.image_url, price, sale_price };
-  } finally {
-    await browser.close();
+      const price = parsePrice(detail.priceText);
+      const sale_price = parsePrice(detail.salePriceText);
+      console.log(`[Crawler] 상품 정보 - ${detail.name} / 정가: ${price} / 할인가: ${sale_price}`);
+      return { name: detail.name, image_url: detail.image_url, price, sale_price };
+    } catch (err) {
+      console.warn(`[Crawler] 상품 크롤링 실패 (시도 ${attempt}/3): ${err.message}`);
+      if (attempt === 3) throw err;
+      await new Promise((r) => setTimeout(r, 3000 * attempt));
+    } finally {
+      await browser.close();
+    }
   }
 }
 
