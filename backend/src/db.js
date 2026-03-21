@@ -14,7 +14,7 @@ db.exec(`
     image_url TEXT,
     price INTEGER,
     sale_price INTEGER,
-    created_at TEXT DEFAULT (datetime('now', 'localtime'))
+    created_at TEXT DEFAULT (datetime('now', '+9 hours'))
   );
 
   CREATE TABLE IF NOT EXISTS rankings (
@@ -22,7 +22,7 @@ db.exec(`
     product_id INTEGER NOT NULL,
     category TEXT NOT NULL,
     rank INTEGER,
-    crawled_at TEXT DEFAULT (datetime('now', 'localtime')),
+    crawled_at TEXT DEFAULT (datetime('now', '+9 hours')),
     FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
   );
 `);
