@@ -13,7 +13,8 @@ const {
 /** 우선 시도 순서 — 앞 모델이 404/미지원이면 다음으로 */
 const MODEL_FALLBACK_CHAIN = [
   process.env.GEMINI_MODEL,
-  "gemini-1.5-flash",
+  "gemini-2.5-flash-lite",
+  "gemini-2.5-flash",
 ].filter(Boolean);
 
 function uniqueModels(list) {
@@ -43,7 +44,7 @@ function parseGeminiResponse(raw, modelTried) {
 }
 
 async function callGenerateContent(apiKey, modelId, body) {
-  const url = `https://generativelanguage.googleapis.com/v1/models/${encodeURIComponent(
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
     modelId
   )}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
