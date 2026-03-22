@@ -344,22 +344,21 @@ async function fetchReviewsViaBrowserFetch(page, originBase, goodsNo, limit) {
 
 /**
  * 스니퍼가 포착한 실제 요청 형식(GET/POST)으로 페이지네이션
+ * axios 대신 page.evaluate() 내 fetch를 사용해 브라우저 세션/쿠키를 그대로 유지
  * 1페이지는 스니퍼가 이미 수집했으므로 2페이지부터 시작
  */
-async function fetchReviewsViaCapturedRequest(capturedReq, limit) {
+async function fetchReviewsViaCapturedRequest(page, capturedReq, limit) {
   const pageKeys = ["page", "pageIdx", "currentPage", "pageNumber"];
   const sizeKeys = ["size", "rowsPerPage", "pageSize", "rows"];
   const pageSize = pickPageSize(limit);
   const maxPages = pickMaxPages(limit, pageSize);
 
-  // GET: URL 쿼리스트링에서 파라미터 추출
-  // POST: body JSON에서 파라미터 추출
-  let params; // URLSearchParams(GET) or plain object(POST)
-  let isGet = capturedReq.method === "GET";
+  let params;
+  const isGet = capturedReq.method === "GET";
 
   if (isGet) {
     try {
-      params = new URL(capturedReq.url).searchParams;
+      params = Object.fromEntries(new URL(capturedReq.url).searchParams.entries());
     } catch {
       return [];
     }
@@ -371,17 +370,15 @@ async function fetchReviewsViaCapturedRequest(capturedReq, limit) {
     }
   }
 
-  const getValue = (key) => isGet ? params.get(key) : params[key];
-  const pageKey = pageKeys.find((k) => getValue(k) != null);
-  const sizeKey = sizeKeys.find((k) => getValue(k) != null);
+  const pageKey = pageKeys.find((k) => params[k] != null);
+  const sizeKey = sizeKeys.find((k) => params[k] != null);
 
   if (!pageKey) {
-    const keys = isGet ? [...params.keys()].join(", ") : Object.keys(params).join(", ");
-    console.warn(`[Crawler] captured 요청에서 페이지 파라미터 미발견 (${capturedReq.method}):`, keys);
+    console.warn(`[Crawler] captured 요청에서 페이지 파라미터 미발견 (${capturedReq.method}):`, Object.keys(params).join(", "));
     return [];
   }
 
-  const initialPage = Number(getValue(pageKey)) || 1;
+  const initialPage = Number(params[pageKey]) || 1;
   const baseUrl = isGet ? capturedReq.url.split("?")[0] : capturedReq.url;
   console.log(`[Crawler] 페이지네이션 시작: method=${capturedReq.method} pageKey=${pageKey} initialPage=${initialPage} sizeKey=${sizeKey}`);
 
@@ -391,41 +388,58 @@ async function fetchReviewsViaCapturedRequest(capturedReq, limit) {
 
   for (let i = 1; i < maxPages && collected.length < limit; i++) {
     const pageNum = initialPage + i;
-    let res;
-    // HTTP/2 의사헤더(:authority 등)는 axios(HTTP/1.1)에서 허용되지 않으므로 제거
-    const safeHeaders = Object.fromEntries(
-      Object.entries(capturedReq.headers).filter(([k]) => !k.startsWith(":"))
+    const reqParams = { ...params, [pageKey]: pageNum };
+    if (sizeKey) reqParams[sizeKey] = pageSize;
+
+    const payload = await page.evaluate(
+      async ({ url, method, params: p, isGetReq }) => {
+        try {
+          let fetchUrl = url;
+          let fetchOpts;
+          if (isGetReq) {
+            const qs = new URLSearchParams(p).toString();
+            fetchUrl = `${url}?${qs}`;
+            fetchOpts = {
+              method: "GET",
+              credentials: "include",
+              headers: { accept: "application/json, text/plain, */*" },
+            };
+          } else {
+            fetchOpts = {
+              method: "POST",
+              credentials: "include",
+              headers: { "content-type": "application/json", accept: "application/json, text/plain, */*" },
+              body: JSON.stringify(p),
+            };
+          }
+          const res = await fetch(fetchUrl, fetchOpts);
+          const text = await res.text();
+          return { status: res.status, text };
+        } catch (e) {
+          return { status: 0, text: "", error: e.message };
+        }
+      },
+      { url: baseUrl, method: capturedReq.method, params: reqParams, isGetReq: isGet }
     );
+
+    if (payload.error || payload.status === 0) {
+      console.warn(`[Crawler] 페이지네이션 fetch 실패 (p${pageNum}):`, payload.error);
+      break;
+    }
+    if (payload.status !== 200) {
+      console.warn(`[Crawler] 페이지네이션 HTTP ${payload.status} (p${pageNum})`);
+      break;
+    }
+
+    let json;
     try {
-      if (isGet) {
-        const qs = new URLSearchParams(params);
-        qs.set(pageKey, String(pageNum));
-        if (sizeKey) qs.set(sizeKey, String(pageSize));
-        res = await axios.get(`${baseUrl}?${qs.toString()}`, {
-          headers: { accept: "application/json, text/plain, */*", ...safeHeaders },
-          timeout: 35000,
-          validateStatus: () => true,
-        });
-      } else {
-        const body = { ...params, [pageKey]: pageNum };
-        if (sizeKey) body[sizeKey] = pageSize;
-        res = await axios.post(capturedReq.url, body, {
-          headers: { "content-type": "application/json", accept: "application/json, text/plain, */*", ...safeHeaders },
-          timeout: 35000,
-          validateStatus: () => true,
-        });
-      }
-    } catch (err) {
-      console.warn(`[Crawler] 페이지네이션 요청 실패 (p${pageNum}):`, err.message);
-      break;
+      json = JSON.parse(payload.text);
+    } catch {
+      if (++emptyStreak >= 3) break;
+      continue;
     }
 
-    if (res.status !== 200) {
-      console.warn(`[Crawler] 페이지네이션 HTTP ${res.status} (p${pageNum})`);
-      break;
-    }
-
-    const list = extractReviewListBest(res.data);
+    const list = extractReviewListBest(json);
     if (!list.length) {
       if (++emptyStreak >= 3) break;
       continue;
@@ -803,12 +817,12 @@ async function crawlLatestReviewsByProductUrl(productUrl, limit = 100) {
     // 2) 포착한 실제 요청 형식으로 페이지네이션
     if (collected.length < limit && capturedApiRequest) {
       console.log(`[Crawler] 포착 요청으로 페이지네이션 시작 (현재 ${collected.length}건)`);
-      const fromCaptured = await fetchReviewsViaCapturedRequest(capturedApiRequest, limit);
+      const fromCaptured = await fetchReviewsViaCapturedRequest(page, capturedApiRequest, limit);
       for (const row of fromCaptured) {
         pushTextRow(collected, seen, row, limit);
       }
     } else if (collected.length < limit) {
-      console.warn("[Crawler] 요청 형식 미포착 — 폴백으로 진행");
+      console.log("[Crawler] 요청 형식 미포착 — m도메인 폴백으로 진행");
     }
 
     // 3) m 도메인 폴백 — 로드 시 스니퍼가 POST 포착할 수 있음
@@ -823,7 +837,7 @@ async function crawlLatestReviewsByProductUrl(productUrl, limit = 100) {
       console.log(`[Crawler] m도메인 후 상태: collected=${collected.length}/${limit} captured=${capturedApiRequest ? `${capturedApiRequest.method}:${capturedApiRequest.url}` : "NULL"}`);
       if (collected.length < limit && capturedApiRequest) {
         console.log(`[Crawler] m도메인 포착 요청으로 페이지네이션 시작 (현재 ${collected.length}건)`);
-        const fromCaptured = await fetchReviewsViaCapturedRequest(capturedApiRequest, limit);
+        const fromCaptured = await fetchReviewsViaCapturedRequest(page, capturedApiRequest, limit);
         for (const row of fromCaptured) {
           pushTextRow(collected, seen, row, limit);
         }
