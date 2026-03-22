@@ -13,9 +13,6 @@ const {
 /** 우선 시도 순서 — 앞 모델이 404/미지원이면 다음으로 */
 const MODEL_FALLBACK_CHAIN = [
   process.env.GEMINI_MODEL,
-  "gemini-2.5-flash-lite-preview-06-17",
-  "gemini-2.5-flash-preview-05-20",
-  "gemini-2.5-flash",
   "gemini-1.5-flash",
 ].filter(Boolean);
 
