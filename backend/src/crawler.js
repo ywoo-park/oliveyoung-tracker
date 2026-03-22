@@ -376,6 +376,8 @@ async function fetchReviewsViaCapturedRequest(capturedReq, limit) {
   const pageSize = pickPageSize(limit);
   const maxPages = pickMaxPages(limit, pageSize);
 
+  console.log(`[Crawler] fetchReviewsViaCapturedRequest: url=${capturedReq.url} pageKey=${pageKey} initialPage=${initialPage} sizeKey=${sizeKey} pageSize=${pageSize}`);
+
   const collected = [];
   const seen = new Set();
   let emptyStreak = 0;
@@ -395,14 +397,19 @@ async function fetchReviewsViaCapturedRequest(capturedReq, limit) {
         timeout: 35000,
         validateStatus: () => true,
       });
-    } catch {
+    } catch (err) {
+      console.warn(`[Crawler] fetchReviewsViaCapturedRequest 요청 실패 (p${initialPage + i}):`, err.message);
       break;
     }
 
-    if (res.status !== 200) break;
+    if (res.status !== 200) {
+      console.warn(`[Crawler] fetchReviewsViaCapturedRequest HTTP ${res.status} (p${initialPage + i})`);
+      break;
+    }
 
     const list = extractReviewListBest(res.data);
     if (!list.length) {
+      console.warn(`[Crawler] fetchReviewsViaCapturedRequest 빈 응답 (p${initialPage + i}), emptyStreak=${emptyStreak + 1}`);
       if (++emptyStreak >= 3) break;
       continue;
     }
