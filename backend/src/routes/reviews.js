@@ -71,13 +71,16 @@ function topKeywords(reviews, limit = 30) {
     .map(([word, count]) => ({ word, count }));
 }
 
+const REVIEW_LIMIT_OPTIONS = [100, 500, 1000];
+
 router.post("/reviews/analyze", async (req, res) => {
-  const { url, limit = 80 } = req.body || {};
+  const { url, limit = 100 } = req.body || {};
   if (!url) {
     return res.status(400).json({ error: "올리브영 상품 URL은 필수입니다." });
   }
 
-  const safeLimit = Math.max(50, Math.min(Number(limit) || 80, 100));
+  const n = Number(limit);
+  const safeLimit = REVIEW_LIMIT_OPTIONS.includes(n) ? n : 100;
 
   try {
     const scraped = await crawlLatestReviewsByProductUrl(url, safeLimit);
@@ -105,9 +108,15 @@ router.post("/reviews/analyze", async (req, res) => {
     const hasGemini = Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY);
     const hasClaude = Boolean(process.env.ANTHROPIC_API_KEY);
 
+    const maxCorpusChars = Math.min(220_000, 42_000 + scraped.reviews.length * 380);
     const aiPayload = {
       reviews: scraped.reviews,
-      meta: { goodsNo: scraped.goodsNo, count: scraped.count },
+      meta: {
+        goodsNo: scraped.goodsNo,
+        count: scraped.count,
+        maxCorpusChars,
+        productName: scraped.productName || undefined,
+      },
     };
 
     if (!useFreeOnly && hasGemini) {
@@ -154,6 +163,8 @@ router.post("/reviews/analyze", async (req, res) => {
         sourceUrl: scraped.sourceUrl,
         collectedReviews: scraped.count,
         requestedLimit: safeLimit,
+        /** 올리브영 상품 상세에 등록된 공식 명칭 (og:title 기준) */
+        productName: scraped.productName || null,
       },
       strategicInsights,
       strategicInsightsSource,
