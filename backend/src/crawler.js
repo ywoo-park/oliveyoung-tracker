@@ -342,6 +342,94 @@ async function fetchReviewsViaBrowserFetch(page, originBase, goodsNo, limit) {
   return out;
 }
 
+/**
+ * 스니퍼가 포착한 실제 요청 형식으로 페이지네이션
+ * 1페이지는 스니퍼가 이미 수집했으므로 2페이지부터 시작
+ */
+async function fetchReviewsViaCapturedRequest(capturedReq, limit) {
+  let bodyObj;
+  try {
+    bodyObj = JSON.parse(capturedReq.body);
+  } catch {
+    return [];
+  }
+
+  const pageKeys = ["page", "pageIdx", "currentPage", "pageNumber"];
+  let pageKey = null;
+  let initialPage = 1;
+  for (const key of pageKeys) {
+    if (bodyObj[key] !== undefined) {
+      pageKey = key;
+      initialPage = Number(bodyObj[key]) || 1;
+      break;
+    }
+  }
+  if (!pageKey) {
+    console.warn("[Crawler] captured 요청에서 페이지 파라미터 미발견:", Object.keys(bodyObj).join(", "));
+    return [];
+  }
+
+  const sizeKey =
+    bodyObj.size !== undefined ? "size" :
+    bodyObj.rowsPerPage !== undefined ? "rowsPerPage" :
+    bodyObj.pageSize !== undefined ? "pageSize" : null;
+  const pageSize = pickPageSize(limit);
+  const maxPages = pickMaxPages(limit, pageSize);
+
+  const collected = [];
+  const seen = new Set();
+  let emptyStreak = 0;
+
+  for (let i = 1; i < maxPages && collected.length < limit; i++) {
+    const body = { ...bodyObj, [pageKey]: initialPage + i };
+    if (sizeKey) body[sizeKey] = pageSize;
+
+    let res;
+    try {
+      res = await axios.post(capturedReq.url, body, {
+        headers: {
+          "content-type": "application/json",
+          accept: "application/json, text/plain, */*",
+          ...capturedReq.headers,
+        },
+        timeout: 35000,
+        validateStatus: () => true,
+      });
+    } catch {
+      break;
+    }
+
+    if (res.status !== 200) break;
+
+    const list = extractReviewListBest(res.data);
+    if (!list.length) {
+      if (++emptyStreak >= 3) break;
+      continue;
+    }
+    emptyStreak = 0;
+
+    let added = 0;
+    for (const item of list) {
+      const text = reviewTextFromItem(item);
+      if (text.length < 8 || text.length > 8000) continue;
+      const rid = reviewIdFromItem(item);
+      const key = rid != null ? String(rid) : text.slice(0, 200);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      collected.push({ text, created: createdFromItem(item) });
+      added++;
+      if (collected.length >= limit) break;
+    }
+
+    if (!added && ++emptyStreak >= 3) break;
+    else if (added) emptyStreak = 0;
+
+    await sleep(randInt(35, 120));
+  }
+
+  return collected;
+}
+
 function pushReviewApiItem(collected, seen, item, limit) {
   const text = reviewTextFromItem(item);
   if (text.length < 8 || text.length > 8000) return;
@@ -619,18 +707,28 @@ async function crawlLatestReviewsByProductUrl(productUrl, limit = 100) {
 
   const collected = [];
   const seen = new Set();
+  let capturedApiRequest = null;
 
   const onReviewApiResponse = async (res) => {
     try {
       const u = res.url();
       if (!/\/review\/api\//i.test(u) && !u.toLowerCase().includes("review")) return;
-      const method = res.request().method();
+      const req = res.request();
+      const method = req.method();
       if (method !== "POST" && method !== "GET") return;
       const json = await res.json().catch(() => null);
       if (!json) return;
       const list = extractReviewListBest(json);
       for (const item of list) {
         pushReviewApiItem(collected, seen, item, limit);
+      }
+      // 실제 요청 형식 포착 (POST + 리뷰 데이터 있을 때만)
+      if (!capturedApiRequest && list.length > 0 && method === "POST") {
+        const postData = req.postData();
+        if (postData) {
+          capturedApiRequest = { url: u, headers: req.headers(), body: postData };
+          console.log(`[Crawler] 리뷰 API 요청 형식 포착: ${u}`);
+        }
       }
     } catch {
       /* ignore */
@@ -649,15 +747,9 @@ async function crawlLatestReviewsByProductUrl(productUrl, limit = 100) {
       .catch(() => {});
     await sleep(randInt(500, 1100));
 
-    console.log(`[Crawler] 리뷰 수집 goodsNo=${goodsNo} 목표=${limit} (브라우저 fetch + 스니퍼 + axios)`);
+    console.log(`[Crawler] 리뷰 수집 goodsNo=${goodsNo} 목표=${limit} (스니퍼 + 포착 요청 페이지네이션 + 폴백)`);
 
-    // 1) www 출처: 페이지와 동일 origin fetch (쿠키 자동)
-    let fromBrowser = await fetchReviewsViaBrowserFetch(page, "https://www.oliveyoung.co.kr", goodsNo, limit);
-    for (const row of fromBrowser) {
-      pushTextRow(collected, seen, row, limit);
-    }
-
-    // 2) 리뷰 더보기로 추가 네트워크 유도
+    // 1) "리뷰 더보기" 클릭으로 스니퍼가 더 많은 페이지를 자연스럽게 포착
     const moreClicks = limit >= 500 ? 85 : limit >= 200 ? 55 : 35;
     for (let c = 0; c < moreClicks && collected.length < limit; c += 1) {
       const clicked = await page.evaluate(() => {
@@ -676,12 +768,23 @@ async function crawlLatestReviewsByProductUrl(productUrl, limit = 100) {
       await sleep(randInt(450, 1100));
     }
 
-    // 3) m 도메인에서 동일 시도 (세션 분리 대비)
+    // 2) 포착한 실제 요청 형식으로 페이지네이션
+    if (collected.length < limit && capturedApiRequest) {
+      console.log(`[Crawler] 포착 요청으로 페이지네이션 시작 (현재 ${collected.length}건)`);
+      const fromCaptured = await fetchReviewsViaCapturedRequest(capturedApiRequest, limit);
+      for (const row of fromCaptured) {
+        pushTextRow(collected, seen, row, limit);
+      }
+    } else if (collected.length < limit) {
+      console.warn("[Crawler] 요청 형식 미포착 — 폴백으로 진행");
+    }
+
+    // 3) m 도메인 폴백
     if (collected.length < limit) {
       await page.goto(reviewUrlM, { waitUntil: "domcontentloaded", timeout: 55000 }).catch(() => {});
       await sleep(randInt(1500, 2800));
-      fromBrowser = await fetchReviewsViaBrowserFetch(page, "https://m.oliveyoung.co.kr", goodsNo, limit);
-      for (const row of fromBrowser) {
+      const fromBrowserM = await fetchReviewsViaBrowserFetch(page, "https://m.oliveyoung.co.kr", goodsNo, limit);
+      for (const row of fromBrowserM) {
         pushTextRow(collected, seen, row, limit);
       }
     }
