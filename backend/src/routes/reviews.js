@@ -82,9 +82,11 @@ router.post("/reviews/analyze", async (req, res) => {
       keywords,
     };
 
-    let strategicInsights = generateFreeStrategicInsights(insightInput);
+    const freeInsights = generateFreeStrategicInsights(insightInput);
+    let strategicInsights = freeInsights;
     let strategicInsightsSource = "free";
     let strategicInsightsError = null;
+    let freeStrategicInsights = null;
 
     const useFreeOnly = String(process.env.USE_FREE_INSIGHTS_ONLY || "").toLowerCase() === "true";
     const hasGemini = Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY);
@@ -100,6 +102,7 @@ router.post("/reviews/analyze", async (req, res) => {
         const raw = await generateGeminiStrategicInsights(aiPayload);
         strategicInsights = normalizeInsights(raw);
         strategicInsightsSource = "gemini";
+        freeStrategicInsights = freeInsights;
       } catch (geminiErr) {
         const geminiMsg = geminiErr.message || String(geminiErr);
         console.error("[reviews/analyze] Gemini 실패:", geminiMsg);
@@ -108,6 +111,7 @@ router.post("/reviews/analyze", async (req, res) => {
             const raw = await generateClaudeStrategicInsights(aiPayload);
             strategicInsights = normalizeInsights(raw);
             strategicInsightsSource = "claude";
+            freeStrategicInsights = freeInsights;
           } catch (claudeErr) {
             strategicInsightsError = `Gemini: ${geminiMsg} · Claude: ${claudeErr.message || claudeErr}`;
             strategicInsightsSource = "free_fallback";
@@ -123,6 +127,7 @@ router.post("/reviews/analyze", async (req, res) => {
         const raw = await generateClaudeStrategicInsights(aiPayload);
         strategicInsights = normalizeInsights(raw);
         strategicInsightsSource = "claude";
+        freeStrategicInsights = freeInsights;
       } catch (aiErr) {
         strategicInsightsError = aiErr.message || String(aiErr);
         strategicInsightsSource = "free_fallback";
@@ -140,6 +145,7 @@ router.post("/reviews/analyze", async (req, res) => {
       strategicInsights,
       strategicInsightsSource,
       strategicInsightsError,
+      freeStrategicInsights,
       sentimentRatio: {
         positive: positive.length,
         negative: negative.length,

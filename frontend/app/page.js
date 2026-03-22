@@ -27,6 +27,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
+  const [activeTab, setActiveTab] = useState('ai');
 
   async function handleAnalyze(e) {
     e.preventDefault();
@@ -35,6 +36,7 @@ export default function Home() {
     setLoading(true);
     setError(null);
     setResult(null);
+    setActiveTab('ai');
 
     try {
       const res = await fetch(`${API_URL}/api/reviews/analyze`, {
@@ -72,7 +74,10 @@ export default function Home() {
     }
   }
 
-  const si = result?.strategicInsights;
+  const hasComparison = Boolean(result?.freeStrategicInsights);
+  const si = hasComparison && activeTab === 'free'
+    ? result.freeStrategicInsights
+    : result?.strategicInsights;
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-violet-50/80 via-white to-slate-50 pt-24 pb-16 px-4 sm:px-6">
@@ -150,6 +155,32 @@ export default function Home() {
                   </span>
                 )}
               </div>
+            )}
+
+            {hasComparison && (
+              <div className="mb-6 flex gap-1 border-b border-slate-200">
+                <button
+                  onClick={() => setActiveTab('ai')}
+                  className={`px-4 py-2 text-sm font-semibold border-b-2 transition-colors ${
+                    activeTab === 'ai'
+                      ? 'border-violet-600 text-violet-700'
+                      : 'border-transparent text-slate-400 hover:text-slate-600'
+                  }`}
+                >
+                  {result.strategicInsightsSource === 'gemini' ? 'Gemini' : 'Claude'} 분석
+                </button>
+                <button
+                  onClick={() => setActiveTab('free')}
+                  className={`px-4 py-2 text-sm font-semibold border-b-2 transition-colors ${
+                    activeTab === 'free'
+                      ? 'border-violet-600 text-violet-700'
+                      : 'border-transparent text-slate-400 hover:text-slate-600'
+                  }`}
+                >
+                  무료 분석
+                </button>
+              </div>
+            )}
             )}
             {/* 요약 KPI — 보조 */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
