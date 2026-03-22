@@ -43,7 +43,7 @@ function parseGeminiResponse(raw, modelTried) {
 }
 
 async function callGenerateContent(apiKey, modelId, body) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
+  const url = `https://generativelanguage.googleapis.com/v1/models/${encodeURIComponent(
     modelId
   )}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
