@@ -177,3 +177,40 @@ export function formatSessionDate(iso) {
     return '';
   }
 }
+
+/**
+ * 히스토리 카드 상단 — 날짜 옆 시간 (한국어 로캘)
+ * @param {string} iso
+ * @returns {string} 예: 2026년 3월 22일 · 오후 3:45
+ */
+export function formatSessionDateTime(iso) {
+  try {
+    const d = new Date(iso);
+    const datePart = d.toLocaleDateString('ko-KR', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+    const timePart = d.toLocaleTimeString('ko-KR', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+    return `${datePart} · ${timePart}`;
+  } catch {
+    return formatSessionDate(iso);
+  }
+}
+
+/**
+ * 저장된 세션의 분석 리뷰 건수 (API 응답 content 기준)
+ * @param {AnalysisSession} session
+ * @returns {number | null}
+ */
+export function getSessionCollectedReviewCount(session) {
+  const raw =
+    session?.content?.meta?.collectedReviews ?? session?.content?.sentimentRatio?.total;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return Math.floor(n);
+}

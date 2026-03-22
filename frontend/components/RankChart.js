@@ -5,7 +5,8 @@ import {
   Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
 
-const COLORS = ['#111111', '#4F7BF7', '#FF5C5C', '#FF9500', '#9747FF', '#00C896', '#F72585'];
+/** 차트 선 — Black Feather / Oasis 계열 가독성 */
+const COLORS = ['#081412', '#5a7eb5', '#0f3d38', '#7da8d6', '#1a4540', '#4d8fab', '#2d5a54'];
 
 function formatTime(value, mode) {
   if (!value) return '';
@@ -42,7 +43,7 @@ export default function RankChart({ data, products, mode = 'daily' }) {
   return (
     <ResponsiveContainer width="100%" height={320}>
       <LineChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#F0F0F0" vertical={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke="#E8EDE4" vertical={false} />
         <XAxis
           dataKey="time"
           tickFormatter={(v) => formatTime(v, mode)}

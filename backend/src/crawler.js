@@ -886,8 +886,9 @@ async function crawlLatestReviewsByProductUrl(productUrl, limit = 100) {
 
     console.log(`[Crawler] 리뷰 수집 완료 ${uniqueReviews.length}건 (요청 상한 ${limit})`);
 
-    /** 올리브영 상세 메타의 등록 상품명 (og:title) — 히스토리·UI 표시용 */
+    /** 올리브영 상세 메타 — 등록 상품명(og:title)·대표 이미지(og:image), UI·히스토리용 */
     let registeredProductName = "";
+    let productImageUrl = null;
     try {
       const cur = page.url();
       if (!cur.includes("www.oliveyoung.co.kr") || !cur.includes("getGoodsDetail")) {
@@ -903,14 +904,17 @@ async function crawlLatestReviewsByProductUrl(productUrl, limit = 100) {
           { timeout: 12000 }
         )
         .catch(() => {});
-      registeredProductName = await page.evaluate(() => {
+      const meta = await page.evaluate(() => {
         const raw = document.querySelector('meta[property="og:title"]')?.content ?? document.title;
         const t = raw.replace(/\s*\|\s*올리브영.*$/, "").trim();
-        if (!t || t.includes("잠시만")) return "";
-        return t;
+        const titleOk = t && !t.includes("잠시만") ? t : "";
+        const img = document.querySelector('meta[property="og:image"]')?.content?.trim() ?? "";
+        return { title: titleOk, image: img || null };
       });
+      registeredProductName = meta.title;
+      productImageUrl = meta.image;
     } catch {
-      /* 상품명 없이 리뷰만 반환 */
+      /* 상품 메타 없이 리뷰만 반환 */
     }
 
     return {
@@ -919,6 +923,8 @@ async function crawlLatestReviewsByProductUrl(productUrl, limit = 100) {
       count: uniqueReviews.length,
       reviews: uniqueReviews,
       productName: registeredProductName || null,
+      /** 올리브영 상세 og:image — 썸네일 표시용 */
+      productImageUrl: productImageUrl || null,
     };
   } finally {
     page.off("response", onReviewApiResponse);

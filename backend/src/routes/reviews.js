@@ -116,6 +116,7 @@ router.post("/reviews/analyze", async (req, res) => {
         count: scraped.count,
         maxCorpusChars,
         productName: scraped.productName || undefined,
+        productImageUrl: scraped.productImageUrl || undefined,
       },
     };
 
@@ -165,6 +166,8 @@ router.post("/reviews/analyze", async (req, res) => {
         requestedLimit: safeLimit,
         /** 올리브영 상품 상세에 등록된 공식 명칭 (og:title 기준) */
         productName: scraped.productName || null,
+        /** 상품 대표 이미지 URL (og:image) */
+        productImageUrl: scraped.productImageUrl || null,
       },
       strategicInsights,
       strategicInsightsSource,

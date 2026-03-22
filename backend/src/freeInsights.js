@@ -29,12 +29,17 @@ function buildFreeAbmReport({
     .map((p) => p.pain)
     .filter(Boolean);
 
-  const top5Voc = topKw.slice(0, 5).map((k, i) => ({
-    rank: i + 1,
-    theme: k.word,
-    frequencyLabel: `약 ${Math.round((k.count / sumKw) * 100)}% (키워드 상대빈도)`,
-    summary: `전체 리뷰 토큰에서 반복적으로 포착된 특징입니다. (무료 로컬 추정)`,
-  }));
+  const top5Voc = topKw.slice(0, 5).map((k, i) => {
+    const pct = sumKw > 0 ? Math.round((k.count / sumKw) * 100) : 0;
+    return {
+      rank: i + 1,
+      theme: k.word,
+      frequencyPct: pct,
+      frequencyLabel:
+        pct >= 40 ? "높음" : pct >= 20 ? "중간" : "낮음",
+      summary: `전체 리뷰 토큰에서 반복적으로 포착된 특징입니다. (무료 로컬 추정)`,
+    };
+  });
 
   const posPool = positive.length ? positive : reviews;
   const realVoices = [];
@@ -76,15 +81,64 @@ function buildFreeAbmReport({
     };
   });
 
-  const archetypes = ["문제해결형", "감성소구형", "신뢰강조형"];
-  const creativeHooks = archetypes.map((archetype, i) => {
-    const ad = metaAdCopies[i] || metaAdCopies[0];
-    return {
-      archetype,
-      headline: ad?.headline || "",
-      primaryText: ad?.primaryText || "",
-    };
-  });
+  const kw0 = topKw[0]?.word || "핵심 키워드";
+  const pain0 = painPointsTop5[0]?.pain || "리뷰 상위 고민";
+  const sell0 = sellScores[0]?.title || "만족 포인트";
+  const creativeCopy = {
+    intro:
+      "2단계 USP를 기반으로, 실제 광고 클릭률(CTR)을 극대화할 수 있는 유형별 카피를 제안합니다. (무료 로컬 요약 — AI 분석 시 Headline TOP 3가 풍부해집니다.)",
+    types: [
+      {
+        letter: "A",
+        label: "문제해결형 (Problem/Solution)",
+        appeal: `${pain0} 등 리뷰에서 반복된 불만·사용 맥락을 직설적으로 건드리는 소구.`,
+        headlines: [
+          (metaAdCopies[0]?.headline && String(metaAdCopies[0].headline)) ||
+            `「${kw0}」 언급이 많은 리뷰 톤을 반영한 문제-해결 헤드라인 (샘플 1)`,
+          `아직도 「${pain0}」에 시간 쓰세요? 한 번에 정리하는 베이스 루틴`,
+          `수부지·건조 둘 다 잡는다면? ${sell0} 중심 카피 A/B 테스트용`,
+        ],
+        primaryText:
+          metaAdCopies[0]?.primaryText ||
+          "위 헤드라인 중 하나를 골라, 리뷰에서 자주 등장한 표현으로 한 줄을 보강해 보세요.",
+      },
+      {
+        letter: "B",
+        label: "감성/경험 소구형 (Emotional/Lifestyle)",
+        appeal:
+          "사용 후 달라질 분위기·라이프스타일, ‘나다운’ 피부 표현 등 감성적 보상을 전면에 둡니다.",
+        headlines: [
+          (metaAdCopies[1]?.headline && String(metaAdCopies[1].headline)) ||
+            `오늘 피부 뭐 발랐어? 자꾸 물어보게 되는 ${sell0} 톤 (샘플)`,
+          "내 피부인 듯 아닌 듯, 가장 나다운 결을 완성하는 베이스",
+          "공들인 메이크업보다 빛나는, 미니멀 베이스의 여백 미학",
+        ],
+        primaryText:
+          metaAdCopies[1]?.primaryText ||
+          "은은한 고급스러움·결광 이미지를 짧은 문장으로 풀어 쓴 메인 카피 초안입니다.",
+      },
+      {
+        letter: "C",
+        label: "신뢰/성과 강조형 (Authority/Social Proof)",
+        appeal:
+          "랭킹·별점·전문가·누적 판매 등 객관적 근거와 사회적 증거로 클릭 설득력을 높입니다.",
+        headlines: [
+          (metaAdCopies[2]?.headline && String(metaAdCopies[2].headline)) ||
+            `리뷰 ${total}건 맥락에서 도출한 신뢰 메시지 (샘플)`,
+          `「${sell0}」에 대한 긍정 언급이 두드러질 때 쓰는 성과 강조 헤드라인`,
+          "브랜드 기술력·성분 스토리를 한 방에 담은 권위형 헤드라인",
+        ],
+        primaryText:
+          metaAdCopies[2]?.primaryText ||
+          "실제 만족도·수치·인증 등 검증 가능한 문장을 2~4문장으로 넣어 보완하세요.",
+      },
+    ],
+    guidelineBullets: [
+      '의문문이나 반전: "아직도 수정 화장하세요?" 같은 의문문이나, "파운데이션인 줄 알았는데 스킨케어네요" 같은 반전 구조를 활용하세요.',
+      "숫자 활용: '8시간 유지', '99% 만족' 등 구체적인 숫자를 넣어 신뢰도를 높이세요.",
+      "VDL 톤앤매너: 세련되고 시크한 느낌을 위해 과도한 이모지 사용은 자제하고, 문장의 호흡을 짧게 끊어 임팩트를 주세요.",
+    ],
+  };
 
   return normalizeAbmReport({
     reviewInsight: {
@@ -96,7 +150,7 @@ function buildFreeAbmReport({
     uspTop3,
     painPivot,
     marketingPriority4,
-    creativeHooks,
+    creativeCopy,
   });
 }
 

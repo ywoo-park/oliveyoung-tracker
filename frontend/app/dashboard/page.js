@@ -111,11 +111,11 @@ export default function DashboardPage() {
     <main className="pt-24 pb-16 px-4 sm:px-6 max-w-7xl mx-auto">
       {/* 요약 배너 */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <div className="bg-[#6366F1] rounded-2xl px-6 py-5">
-          <p className="text-sm font-semibold text-white/60 mb-1">트래킹 중인 상품</p>
-          <p className="text-4xl font-extrabold text-white tabular-nums">
+        <div className="rounded-2xl bg-mood-oasis px-6 py-5 shadow-md shadow-mood-oasis/35">
+          <p className="mb-1 text-sm font-semibold text-mood-feather/70">트래킹 중인 상품</p>
+          <p className="text-4xl font-extrabold tabular-nums text-mood-feather">
             {loading ? '—' : stats.length}
-            <span className="text-lg font-semibold text-white ml-1">개</span>
+            <span className="ml-1 text-lg font-semibold text-mood-feather">개</span>
           </p>
         </div>
         <div className="bg-white rounded-2xl px-6 py-5 shadow-sm">
@@ -140,9 +140,9 @@ export default function DashboardPage() {
             <button
               key={cat}
               onClick={() => setCategory(cat)}
-              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+              className={`rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
                 category === cat
-                  ? 'bg-[#6366F1] text-white'
+                  ? 'bg-mood-oasis text-mood-feather shadow-sm shadow-mood-oasis/25'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
@@ -159,7 +159,7 @@ export default function DashboardPage() {
               onClick={() => setPreset(p)}
               className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
                 preset.label === p.label
-                  ? 'bg-gray-900 text-white'
+                  ? 'bg-mood-celery text-mood-feather shadow-sm'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
@@ -203,7 +203,7 @@ export default function DashboardPage() {
             <h2 className="text-base font-extrabold text-gray-900">순위 추이</h2>
             <span className={`text-xs font-semibold px-2.5 py-1 rounded-lg ${
               preset.mode === 'hourly'
-                ? 'bg-[#6366F1]/10 text-[#6366F1]'
+                ? 'bg-mood-oasis/40 text-mood-feather'
                 : 'bg-gray-100 text-gray-500'
             }`}>
               {preset.mode === 'hourly' ? '시간별' : '일별'}

@@ -6,3 +6,8 @@
   font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Pretendard', 'Noto Sans KR', sans-serif;
   -webkit-font-smoothing: antialiased;
 }
+
+::selection {
+  background-color: rgba(167, 197, 249, 0.55);
+  color: #081412;
+}

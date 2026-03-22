@@ -2,14 +2,14 @@ import './globals.css';
 import Nav from '@/components/Nav';
 
 export const metadata = {
-  title: '올리브영 랭킹 트래커',
-  description: '올리브영 상품 순위를 트래킹합니다.',
+  title: 'BM Insight Tracker',
+  description: '올리브영 리뷰·랭킹 인사이트 트래커',
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="ko">
-      <body className="bg-[#F0F0F0] min-h-screen">
+      <body className="min-h-screen bg-mood-ice text-mood-feather antialiased">
         <Nav />
         {children}
       </body>

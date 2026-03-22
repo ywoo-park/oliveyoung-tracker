@@ -1,7 +1,7 @@
 function getRankBadgeStyle(rank) {
   if (!rank) return 'bg-gray-100 text-gray-400';
-  if (rank <= 5) return 'bg-[#6366F1] text-white';
-  if (rank <= 20) return 'bg-blue-100 text-blue-600';
+  if (rank <= 5) return 'bg-mood-oasis text-mood-feather';
+  if (rank <= 20) return 'bg-mood-celery/70 text-mood-feather';
   if (rank <= 50) return 'bg-gray-100 text-gray-700';
   return 'bg-red-50 text-red-400';
 }
@@ -53,7 +53,7 @@ export default function ProductCard({ product }) {
               </span>
             ) : null}
             {discountRate ? (
-              <span className="text-xs font-bold bg-[#6366F1] text-white px-1.5 py-0.5 rounded-md">
+              <span className="rounded-md bg-mood-celery px-1.5 py-0.5 text-xs font-bold text-mood-feather">
                 {discountRate}%
               </span>
             ) : null}

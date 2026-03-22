@@ -73,9 +73,9 @@ export default function AdminPage() {
   }
 
   const messageStyle = {
-    success: 'bg-[#6366F1]/10 text-[#6366F1]',
+    success: 'bg-mood-celery/50 text-mood-feather',
     error: 'bg-red-50 text-red-600',
-    info: 'bg-blue-50 text-blue-700',
+    info: 'bg-mood-oasis/45 text-mood-feather',
   };
 
   return (
@@ -91,12 +91,12 @@ export default function AdminPage() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="올리브영 상품 코드 (예: A000000176322)"
-            className="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#6366F1]/50 focus:border-transparent"
+            className="flex-1 rounded-xl border border-gray-200 px-4 py-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-mood-oasis/50"
           />
           <button
             type="submit"
             disabled={adding || !input.trim()}
-            className="bg-[#6366F1] text-white font-bold px-5 py-3 rounded-xl text-sm hover:bg-[#4F46E5] transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+            className="rounded-xl bg-mood-oasis px-5 py-3 text-sm font-bold text-mood-feather transition-colors hover:bg-mood-oasisHover disabled:cursor-not-allowed disabled:opacity-40 whitespace-nowrap"
           >
             {adding ? '등록 중...' : '등록'}
           </button>
@@ -121,10 +121,10 @@ export default function AdminPage() {
           <button
             onClick={handleCrawl}
             disabled={crawling}
-            className={`px-5 py-3 rounded-xl text-sm font-bold transition-colors whitespace-nowrap ${
+            className={`rounded-xl px-5 py-3 text-sm font-bold transition-colors whitespace-nowrap ${
               crawling
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                : 'bg-black text-white hover:bg-gray-800'
+                ? 'cursor-not-allowed bg-gray-100 text-gray-400'
+                : 'bg-mood-oasis text-mood-feather hover:bg-mood-oasisHover'
             }`}
           >
             {crawling ? '실행 중...' : '지금 크롤링'}
