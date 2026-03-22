@@ -94,26 +94,43 @@ async function crawlProductDetail(oliveyoung_id) {
   }
 }
 
-async function fetchRanking(page, url) {
-  await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
+async function fetchRanking(page, url, retries = 3) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
 
-  await page.waitForFunction(
-    () => document.querySelectorAll("a[href*='goodsNo']").length > 0,
-    { timeout: 15000 }
-  ).catch(() => {});
-
-  return page.evaluate(() => {
-    const result = {};
-    document.querySelectorAll("a[href*='goodsNo'][href*='t_number']").forEach((el) => {
-      const href = el.getAttribute("href") ?? "";
-      const goodsNo = href.match(/goodsNo=(\w+)/)?.[1];
-      const rank = href.match(/t_number=(\d+)/)?.[1];
-      if (goodsNo && rank && !(goodsNo in result)) {
-        result[goodsNo] = parseInt(rank, 10);
+    try {
+      await page.waitForFunction(
+        () => document.querySelectorAll("a[href*='goodsNo'][href*='t_number']").length > 0,
+        { timeout: 15000 }
+      );
+    } catch {
+      if (attempt < retries) {
+        await sleep(2000 * attempt);
+        continue;
       }
+    }
+
+    const result = await page.evaluate(() => {
+      const result = {};
+      document.querySelectorAll("a[href*='goodsNo'][href*='t_number']").forEach((el) => {
+        const href = el.getAttribute("href") ?? "";
+        const goodsNo = href.match(/goodsNo=(\w+)/)?.[1];
+        const rank = href.match(/t_number=(\d+)/)?.[1];
+        if (goodsNo && rank && !(goodsNo in result)) {
+          result[goodsNo] = parseInt(rank, 10);
+        }
+      });
+      return result;
     });
-    return result;
-  });
+
+    if (Object.keys(result).length > 0 || attempt === retries) {
+      return result;
+    }
+
+    await sleep(2000 * attempt);
+  }
+
+  return {};
 }
 
 async function crawlAll() {
