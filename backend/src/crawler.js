@@ -392,13 +392,17 @@ async function fetchReviewsViaCapturedRequest(capturedReq, limit) {
   for (let i = 1; i < maxPages && collected.length < limit; i++) {
     const pageNum = initialPage + i;
     let res;
+    // HTTP/2 의사헤더(:authority 등)는 axios(HTTP/1.1)에서 허용되지 않으므로 제거
+    const safeHeaders = Object.fromEntries(
+      Object.entries(capturedReq.headers).filter(([k]) => !k.startsWith(":"))
+    );
     try {
       if (isGet) {
         const qs = new URLSearchParams(params);
         qs.set(pageKey, String(pageNum));
         if (sizeKey) qs.set(sizeKey, String(pageSize));
         res = await axios.get(`${baseUrl}?${qs.toString()}`, {
-          headers: { accept: "application/json, text/plain, */*", ...capturedReq.headers },
+          headers: { accept: "application/json, text/plain, */*", ...safeHeaders },
           timeout: 35000,
           validateStatus: () => true,
         });
@@ -406,7 +410,7 @@ async function fetchReviewsViaCapturedRequest(capturedReq, limit) {
         const body = { ...params, [pageKey]: pageNum };
         if (sizeKey) body[sizeKey] = pageSize;
         res = await axios.post(capturedReq.url, body, {
-          headers: { "content-type": "application/json", accept: "application/json, text/plain, */*", ...capturedReq.headers },
+          headers: { "content-type": "application/json", accept: "application/json, text/plain, */*", ...safeHeaders },
           timeout: 35000,
           validateStatus: () => true,
         });
