@@ -732,6 +732,7 @@ async function crawlLatestReviewsByProductUrl(productUrl, limit = 100) {
       // 실제 요청 형식 포착 (POST + 리뷰 데이터 있을 때만)
       if (!capturedApiRequest && list.length > 0 && method === "POST") {
         const postData = req.postData();
+        console.log(`[Crawler] POST 포착 시도: url=${u} postData=${postData ? `OK(${postData.slice(0, 80)})` : "NULL"}`);
         if (postData) {
           capturedApiRequest = { url: u, headers: req.headers(), body: postData };
           console.log(`[Crawler] 리뷰 API 요청 형식 포착: ${u}`);
@@ -795,6 +796,7 @@ async function crawlLatestReviewsByProductUrl(productUrl, limit = 100) {
         pushTextRow(collected, seen, row, limit);
       }
       // m 도메인 로드로 요청 형식이 새로 포착된 경우 페이지네이션 재시도
+      console.log(`[Crawler] m도메인 후 상태: collected=${collected.length}/${limit} capturedApiRequest=${capturedApiRequest ? `SET(${capturedApiRequest.url})` : "NULL"}`);
       if (collected.length < limit && capturedApiRequest) {
         console.log(`[Crawler] m도메인 포착 요청으로 페이지네이션 시작 (현재 ${collected.length}건)`);
         const fromCaptured = await fetchReviewsViaCapturedRequest(capturedApiRequest, limit);
