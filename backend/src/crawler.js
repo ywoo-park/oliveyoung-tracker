@@ -1,5 +1,6 @@
 const puppeteer = require("puppeteer");
 const { pool } = require("./db");
+const { notifyOps, notifyRanking } = require("./slack");
 
 const CATEGORIES = {
   전체: "https://www.oliveyoung.co.kr/store/main/getBestList.do?dispCatNo=900000100100001&fltDispCatNo=&pageIdx=1&rowsPerPage=100",
@@ -134,9 +135,12 @@ async function fetchRanking(page, url, retries = 3) {
 }
 
 async function crawlAll() {
-  console.log(`[Crawler] 랭킹 크롤링 시작 - ${new Date().toLocaleString("ko-KR")}`);
+  const startedAt = Date.now();
+  const startLabel = new Date().toLocaleString("ko-KR");
+  console.log(`[Crawler] 랭킹 크롤링 시작 - ${startLabel}`);
+  await notifyOps(`🟡 크롤링 시작 - ${startLabel}`);
 
-  const { rows: products } = await pool.query("SELECT id, oliveyoung_id FROM products");
+  const { rows: products } = await pool.query("SELECT id, oliveyoung_id, name FROM products");
   if (products.length === 0) {
     console.log("[Crawler] 등록된 상품 없음, 종료");
     return;
@@ -148,23 +152,44 @@ async function crawlAll() {
   for (const [category, url] of Object.entries(CATEGORIES)) {
     try {
       const rankings = await fetchRanking(page, url);
-      console.log(`[Crawler] ${category} 파싱 완료 - ${Object.keys(rankings).length}개`);
+      const count = Object.keys(rankings).length;
+      console.log(`[Crawler] ${category} 파싱 완료 - ${count}개`);
+
+      if (count === 0) {
+        await notifyOps(`⚠️ *${category}* 카테고리 파싱 결과 0개`);
+      }
 
       for (const product of products) {
         const rank = rankings[product.oliveyoung_id] ?? null;
+
+        const { rows: [prev] } = await pool.query(
+          "SELECT rank FROM rankings WHERE product_id = $1 AND category = $2 ORDER BY crawled_at DESC LIMIT 1",
+          [product.id, category]
+        );
+        const prevRank = prev?.rank ?? null;
+
         await pool.query(
           "INSERT INTO rankings (product_id, category, rank) VALUES ($1, $2, $3)",
           [product.id, category, rank]
         );
         console.log(`[Crawler] ${category} - ${product.oliveyoung_id}: ${rank ?? "순위권 밖"}`);
+
+        if (prevRank === null && rank !== null) {
+          await notifyRanking(`📈 *${product.name}* 이(가) *${category}* 카테고리 순위권에 진입했습니다! (${rank}위)`);
+        } else if (prevRank !== null && rank === null) {
+          await notifyRanking(`📉 *${product.name}* 이(가) *${category}* 카테고리 순위권에서 이탈했습니다. (이전 ${prevRank}위)`);
+        }
       }
     } catch (err) {
       console.error(`[Crawler] ${category} 크롤링 실패:`, err.message);
+      await notifyOps(`🔴 *${category}* 카테고리 크롤링 실패\n\`${err.message}\``);
     }
   }
 
   await browser.close();
+  const elapsed = Math.round((Date.now() - startedAt) / 1000);
   console.log("[Crawler] 랭킹 크롤링 완료");
+  await notifyOps(`✅ 크롤링 완료 (소요: ${elapsed}초)`);
 }
 
 function extractGoodsNoFromUrl(url) {
