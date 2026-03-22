@@ -779,13 +779,21 @@ async function crawlLatestReviewsByProductUrl(productUrl, limit = 100) {
       console.warn("[Crawler] 요청 형식 미포착 — 폴백으로 진행");
     }
 
-    // 3) m 도메인 폴백
+    // 3) m 도메인 폴백 — 로드 시 스니퍼가 POST 포착할 수 있음
     if (collected.length < limit) {
       await page.goto(reviewUrlM, { waitUntil: "domcontentloaded", timeout: 55000 }).catch(() => {});
       await sleep(randInt(1500, 2800));
       const fromBrowserM = await fetchReviewsViaBrowserFetch(page, "https://m.oliveyoung.co.kr", goodsNo, limit);
       for (const row of fromBrowserM) {
         pushTextRow(collected, seen, row, limit);
+      }
+      // m 도메인 로드로 요청 형식이 새로 포착된 경우 페이지네이션 재시도
+      if (collected.length < limit && capturedApiRequest) {
+        console.log(`[Crawler] m도메인 포착 요청으로 페이지네이션 시작 (현재 ${collected.length}건)`);
+        const fromCaptured = await fetchReviewsViaCapturedRequest(capturedApiRequest, limit);
+        for (const row of fromCaptured) {
+          pushTextRow(collected, seen, row, limit);
+        }
       }
     }
 
