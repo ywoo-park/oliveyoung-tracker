@@ -1,5 +1,6 @@
 const puppeteer = require("puppeteer");
 const { pool } = require("./db");
+const { notifyOps, notifyRanking } = require("./slack");
 
 const CATEGORIES = {
   전체: "https://www.oliveyoung.co.kr/store/main/getBestList.do?dispCatNo=900000100100001&fltDispCatNo=&pageIdx=1&rowsPerPage=100",
@@ -94,32 +95,52 @@ async function crawlProductDetail(oliveyoung_id) {
   }
 }
 
-async function fetchRanking(page, url) {
-  await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
+async function fetchRanking(page, url, retries = 3) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
 
-  await page.waitForFunction(
-    () => document.querySelectorAll("a[href*='goodsNo']").length > 0,
-    { timeout: 15000 }
-  ).catch(() => {});
-
-  return page.evaluate(() => {
-    const result = {};
-    document.querySelectorAll("a[href*='goodsNo'][href*='t_number']").forEach((el) => {
-      const href = el.getAttribute("href") ?? "";
-      const goodsNo = href.match(/goodsNo=(\w+)/)?.[1];
-      const rank = href.match(/t_number=(\d+)/)?.[1];
-      if (goodsNo && rank && !(goodsNo in result)) {
-        result[goodsNo] = parseInt(rank, 10);
+    try {
+      await page.waitForFunction(
+        () => document.querySelectorAll("a[href*='goodsNo'][href*='t_number']").length > 0,
+        { timeout: 15000 }
+      );
+    } catch {
+      if (attempt < retries) {
+        await sleep(2000 * attempt);
+        continue;
       }
+    }
+
+    const result = await page.evaluate(() => {
+      const result = {};
+      document.querySelectorAll("a[href*='goodsNo'][href*='t_number']").forEach((el) => {
+        const href = el.getAttribute("href") ?? "";
+        const goodsNo = href.match(/goodsNo=(\w+)/)?.[1];
+        const rank = href.match(/t_number=(\d+)/)?.[1];
+        if (goodsNo && rank && !(goodsNo in result)) {
+          result[goodsNo] = parseInt(rank, 10);
+        }
+      });
+      return result;
     });
-    return result;
-  });
+
+    if (Object.keys(result).length > 0 || attempt === retries) {
+      return result;
+    }
+
+    await sleep(2000 * attempt);
+  }
+
+  return {};
 }
 
 async function crawlAll() {
-  console.log(`[Crawler] 랭킹 크롤링 시작 - ${new Date().toLocaleString("ko-KR")}`);
+  const startedAt = Date.now();
+  const startLabel = new Date().toLocaleString("ko-KR");
+  console.log(`[Crawler] 랭킹 크롤링 시작 - ${startLabel}`);
+  await notifyOps(`🟡 크롤링 시작 - ${startLabel}`);
 
-  const { rows: products } = await pool.query("SELECT id, oliveyoung_id FROM products");
+  const { rows: products } = await pool.query("SELECT id, oliveyoung_id, name FROM products");
   if (products.length === 0) {
     console.log("[Crawler] 등록된 상품 없음, 종료");
     return;
@@ -128,10 +149,21 @@ async function crawlAll() {
   const browser = await newBrowser();
   const page = await setupPage(browser);
 
+  // 카테고리별 결과 수집 (순위 요약 알림용)
+  const summaryByProduct = {};
+  for (const product of products) {
+    summaryByProduct[product.id] = { name: product.name, ranks: {} };
+  }
+
   for (const [category, url] of Object.entries(CATEGORIES)) {
     try {
       const rankings = await fetchRanking(page, url);
-      console.log(`[Crawler] ${category} 파싱 완료 - ${Object.keys(rankings).length}개`);
+      const count = Object.keys(rankings).length;
+      console.log(`[Crawler] ${category} 파싱 완료 - ${count}개`);
+
+      if (count === 0) {
+        await notifyOps(`⚠️ *${category}* 카테고리 파싱 결과 0개`);
+      }
 
       for (const product of products) {
         const rank = rankings[product.oliveyoung_id] ?? null;
@@ -140,14 +172,28 @@ async function crawlAll() {
           [product.id, category, rank]
         );
         console.log(`[Crawler] ${category} - ${product.oliveyoung_id}: ${rank ?? "순위권 밖"}`);
+        summaryByProduct[product.id].ranks[category] = rank;
       }
     } catch (err) {
       console.error(`[Crawler] ${category} 크롤링 실패:`, err.message);
+      await notifyOps(`🔴 *${category}* 카테고리 크롤링 실패\n\`${err.message}\``);
     }
   }
 
   await browser.close();
+  const elapsed = Math.round((Date.now() - startedAt) / 1000);
   console.log("[Crawler] 랭킹 크롤링 완료");
+  await notifyOps(`✅ 크롤링 완료 (소요: ${elapsed}초)`);
+
+  const categoryNames = Object.keys(CATEGORIES);
+  const summaryLines = Object.values(summaryByProduct).map(({ name, ranks }) => {
+    const rankText = categoryNames.map((cat) => {
+      const r = ranks[cat];
+      return `${cat}: ${r != null ? `${r}위` : "순위권 밖"}`;
+    }).join(" | ");
+    return `• *${name}* — ${rankText}`;
+  });
+  await notifyRanking(`📊 *랭킹 요약* (${new Date().toLocaleString("ko-KR")})\n${summaryLines.join("\n")}`);
 }
 
 function extractGoodsNoFromUrl(url) {
