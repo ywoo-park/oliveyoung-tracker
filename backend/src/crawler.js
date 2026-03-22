@@ -149,6 +149,12 @@ async function crawlAll() {
   const browser = await newBrowser();
   const page = await setupPage(browser);
 
+  // 카테고리별 결과 수집 (순위 요약 알림용)
+  const summaryByProduct = {};
+  for (const product of products) {
+    summaryByProduct[product.id] = { name: product.name, ranks: {} };
+  }
+
   for (const [category, url] of Object.entries(CATEGORIES)) {
     try {
       const rankings = await fetchRanking(page, url);
@@ -161,24 +167,12 @@ async function crawlAll() {
 
       for (const product of products) {
         const rank = rankings[product.oliveyoung_id] ?? null;
-
-        const { rows: [prev] } = await pool.query(
-          "SELECT rank FROM rankings WHERE product_id = $1 AND category = $2 ORDER BY crawled_at DESC LIMIT 1",
-          [product.id, category]
-        );
-        const prevRank = prev?.rank ?? null;
-
         await pool.query(
           "INSERT INTO rankings (product_id, category, rank) VALUES ($1, $2, $3)",
           [product.id, category, rank]
         );
         console.log(`[Crawler] ${category} - ${product.oliveyoung_id}: ${rank ?? "순위권 밖"}`);
-
-        if (prevRank === null && rank !== null) {
-          await notifyRanking(`📈 *${product.name}* 이(가) *${category}* 카테고리 순위권에 진입했습니다! (${rank}위)`);
-        } else if (prevRank !== null && rank === null) {
-          await notifyRanking(`📉 *${product.name}* 이(가) *${category}* 카테고리 순위권에서 이탈했습니다. (이전 ${prevRank}위)`);
-        }
+        summaryByProduct[product.id].ranks[category] = rank;
       }
     } catch (err) {
       console.error(`[Crawler] ${category} 크롤링 실패:`, err.message);
@@ -190,6 +184,16 @@ async function crawlAll() {
   const elapsed = Math.round((Date.now() - startedAt) / 1000);
   console.log("[Crawler] 랭킹 크롤링 완료");
   await notifyOps(`✅ 크롤링 완료 (소요: ${elapsed}초)`);
+
+  const categoryNames = Object.keys(CATEGORIES);
+  const summaryLines = Object.values(summaryByProduct).map(({ name, ranks }) => {
+    const rankText = categoryNames.map((cat) => {
+      const r = ranks[cat];
+      return `${cat}: ${r != null ? `${r}위` : "순위권 밖"}`;
+    }).join(" | ");
+    return `• *${name}* — ${rankText}`;
+  });
+  await notifyRanking(`📊 *랭킹 요약* (${new Date().toLocaleString("ko-KR")})\n${summaryLines.join("\n")}`);
 }
 
 function extractGoodsNoFromUrl(url) {
