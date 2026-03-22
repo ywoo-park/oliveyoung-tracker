@@ -40,7 +40,7 @@ app.use(
         callback(null, false);
       }
     },
-    methods: ["GET", "POST", "DELETE", "OPTIONS"],
+    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
@@ -49,6 +49,7 @@ app.use(express.json());
 app.use("/api", adminRoutes);
 app.use("/api", dashboardRoutes);
 app.use("/api", reviewRoutes);
+app.use("/api", sessionRoutes);
 
 app.post("/api/crawl", async (req, res) => {
   res.json({ message: "크롤링을 시작합니다." });
