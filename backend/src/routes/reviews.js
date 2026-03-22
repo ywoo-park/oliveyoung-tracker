@@ -7,6 +7,19 @@ const { generateFreeStrategicInsights } = require("../freeInsights");
 
 const router = express.Router();
 
+function mergeAbmReportIfWeak(strategicInsights, freeInsights) {
+  const weak =
+    !strategicInsights?.abmReport?.reviewInsight?.top5Voc?.length ||
+    !strategicInsights?.abmReport?.uspTop3?.length;
+  if (weak && freeInsights?.abmReport?.reviewInsight?.top5Voc?.length) {
+    return {
+      ...strategicInsights,
+      abmReport: freeInsights.abmReport,
+    };
+  }
+  return strategicInsights;
+}
+
 const POSITIVE_WORDS = [
   "좋아요", "좋다", "촉촉", "흡수", "산뜻", "재구매", "추천", "순함", "만족",
   "가성비", "발림", "광채", "보습", "짱", "최고", "잘맞", "인생템", "부드럽",
@@ -100,7 +113,7 @@ router.post("/reviews/analyze", async (req, res) => {
     if (!useFreeOnly && hasGemini) {
       try {
         const raw = await generateGeminiStrategicInsights(aiPayload);
-        strategicInsights = normalizeInsights(raw);
+        strategicInsights = mergeAbmReportIfWeak(normalizeInsights(raw), freeInsights);
         strategicInsightsSource = "gemini";
         freeStrategicInsights = freeInsights;
       } catch (geminiErr) {
@@ -109,7 +122,7 @@ router.post("/reviews/analyze", async (req, res) => {
         if (hasClaude) {
           try {
             const raw = await generateClaudeStrategicInsights(aiPayload);
-            strategicInsights = normalizeInsights(raw);
+            strategicInsights = mergeAbmReportIfWeak(normalizeInsights(raw), freeInsights);
             strategicInsightsSource = "claude";
             freeStrategicInsights = freeInsights;
           } catch (claudeErr) {
@@ -125,7 +138,7 @@ router.post("/reviews/analyze", async (req, res) => {
     } else if (!useFreeOnly && hasClaude) {
       try {
         const raw = await generateClaudeStrategicInsights(aiPayload);
-        strategicInsights = normalizeInsights(raw);
+        strategicInsights = mergeAbmReportIfWeak(normalizeInsights(raw), freeInsights);
         strategicInsightsSource = "claude";
         freeStrategicInsights = freeInsights;
       } catch (aiErr) {

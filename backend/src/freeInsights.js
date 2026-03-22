@@ -3,7 +3,102 @@
  * 키워드·패턴 매칭 + 템플릿 기반이라 Claude 대비 해석 깊이는 낮을 수 있습니다.
  */
 
-const { normalizeInsights } = require("./strategicInsightsCore");
+const { normalizeInsights, normalizeAbmReport } = require("./strategicInsightsCore");
+
+function buildFreeAbmReport({
+  reviews,
+  positive,
+  negative,
+  keywords,
+  painPointsTop5,
+  sellScores,
+  painPointSolutions,
+  marketingActions,
+  metaAdCopies,
+}) {
+  const total = reviews.length || 1;
+  const posN = positive.length;
+  const negN = negative.length;
+  const neuN = Math.max(0, total - posN - negN);
+  const topKw = (keywords || []).slice(0, 12);
+  const sumKw = topKw.reduce((s, k) => s + k.count, 0) || 1;
+
+  const positiveKeywords = topKw.slice(0, 5).map((k) => k.word);
+  const negativeKeywords = (painPointsTop5 || [])
+    .slice(0, 5)
+    .map((p) => p.pain)
+    .filter(Boolean);
+
+  const top5Voc = topKw.slice(0, 5).map((k, i) => ({
+    rank: i + 1,
+    theme: k.word,
+    frequencyLabel: `약 ${Math.round((k.count / sumKw) * 100)}% (키워드 상대빈도)`,
+    summary: `전체 리뷰 토큰에서 반복적으로 포착된 특징입니다. (무료 로컬 추정)`,
+  }));
+
+  const posPool = positive.length ? positive : reviews;
+  const realVoices = [];
+  const sorted = [...posPool].sort((a, b) => a.length - b.length);
+  for (const r of sorted) {
+    if (r && r.length >= 15 && r.length <= 180) {
+      realVoices.push(r.replace(/\s+/g, " ").trim());
+    }
+    if (realVoices.length >= 3) break;
+  }
+  while (realVoices.length < 3) {
+    realVoices.push("리뷰에서 유사한 표현이 반복됩니다. (인용 샘플 부족 시 로컬 플레이스홀더)");
+    if (realVoices.length >= 3) break;
+  }
+
+  const axisLabels = ["제형/밀착", "지속/표현", "피부 타입·루틴 최적화"];
+  const uspTop3 = [0, 1, 2].map((i) => {
+    const th = sellScores[i] || sellScores[0];
+    return {
+      axis: axisLabels[i] || `USP ${i + 1}`,
+      headline: th?.title || "핵심 만족 테마",
+      body: `${th?.desc || "긍정 톤 리뷰 패턴 기반."} 리뷰 키워드 매칭으로 도출된 로컬 요약이며, AI 분석 시 더 정교해집니다.`,
+    };
+  });
+
+  const painPivot = (painPointSolutions || []).slice(0, 3).map((p) => ({
+    pain: p.title,
+    reviewSignal: p.evidenceSummary,
+    brandSolution: p.detailPageSolution,
+  }));
+
+  const pillars = ["인플루언서/바이럴", "온드미디어/에셋", "프로모션/굿즈", "브랜딩/이미지"];
+  const marketingPriority4 = pillars.map((pillar, i) => {
+    const m = marketingActions[i] || marketingActions[0];
+    return {
+      pillar,
+      title: m?.title || `우선 과제 ${i + 1}`,
+      action: m?.description || m?.rationale || "",
+    };
+  });
+
+  const archetypes = ["문제해결형", "감성소구형", "신뢰강조형"];
+  const creativeHooks = archetypes.map((archetype, i) => {
+    const ad = metaAdCopies[i] || metaAdCopies[0];
+    return {
+      archetype,
+      headline: ad?.headline || "",
+      primaryText: ad?.primaryText || "",
+    };
+  });
+
+  return normalizeAbmReport({
+    reviewInsight: {
+      positiveKeywords,
+      negativeKeywords: negativeKeywords.length ? negativeKeywords : ["(부정 키워드 매칭 약함)", "개인차·기대치", "사용 환경"],
+      top5Voc,
+      realVoices: realVoices.slice(0, 3),
+    },
+    uspTop3,
+    painPivot,
+    marketingPriority4,
+    creativeHooks,
+  });
+}
 
 const PAIN_THEMES = [
   {
@@ -387,6 +482,18 @@ function buildFreeStrategicPayload(input) {
     },
   ];
 
+  const abmReport = buildFreeAbmReport({
+    reviews,
+    positive,
+    negative,
+    keywords,
+    painPointsTop5,
+    sellScores,
+    painPointSolutions,
+    marketingActions,
+    metaAdCopies,
+  });
+
   return {
     positioningSummary,
     painPointsTop5,
@@ -402,6 +509,7 @@ function buildFreeStrategicPayload(input) {
       topSituations,
     },
     marketingActions,
+    abmReport,
   };
 }
 
