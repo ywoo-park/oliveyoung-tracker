@@ -181,7 +181,6 @@ export default function Home() {
                 </button>
               </div>
             )}
-            )}
             {/* 요약 KPI — 보조 */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
               <div className="rounded-2xl bg-white border border-slate-100 px-4 py-3">
