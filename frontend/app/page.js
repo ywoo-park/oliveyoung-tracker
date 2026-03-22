@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import AnalysisSidebar from '../components/AnalysisSidebar';
+import ReviewLimitSelect from '../components/ReviewLimitSelect';
 import {
   appendSessionFromApi,
   deleteSession as deleteSessionStorage,
@@ -449,6 +450,9 @@ export default function Home() {
         ? 'DB 미연결: 이 브라우저(localStorage)에만 저장됩니다. backend/.env의 DATABASE_URL을 확인하세요.'
         : '히스토리를 불러오는 중…';
 
+  /** 결과 없을 때: ChatGPT 스타일 가운데 랜딩 */
+  const isLanding = !result;
+
   return (
     <>
       <AnalysisSidebar
@@ -475,57 +479,110 @@ export default function Home() {
         </svg>
       </button>
 
-      <main className="min-h-screen bg-gradient-to-b from-violet-50/80 via-white to-slate-50 pb-16 pl-0 pt-16 lg:pl-[260px] lg:pt-24">
-        <div className="mx-auto max-w-5xl px-4 sm:px-6">
-        <header className="mb-8">
-          <p className="text-xs font-semibold tracking-widest text-violet-600 uppercase mb-2">
-            Strategic Insight Summary
-          </p>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-            리뷰 기반 마케팅 전략 인사이트
-          </h1>
-          <p className="text-sm text-slate-500 mt-2 max-w-2xl">
-            수집 리뷰를 Google Gemini(Flash 계열)가 VDL 전략 장표 형태로 해석합니다. (키 미설정 시 무료 로컬 분석)
-          </p>
-        </header>
+      <main
+        className={[
+          'min-h-[100dvh] pl-0 transition-[padding] duration-300',
+          'bg-[#f4f4f5] bg-gradient-to-b from-[#f4f4f5] via-[#fafafa] to-[#ececf0]',
+          'lg:pl-[260px]',
+          isLanding
+            ? 'flex flex-col justify-center pb-12 pt-20 lg:min-h-screen lg:py-0 lg:pt-0'
+            : 'pb-16 pt-20 lg:pt-24',
+        ].join(' ')}
+      >
+        <div
+          className={[
+            'mx-auto w-full px-4 sm:px-6',
+            isLanding ? 'max-w-[42rem] flex flex-col items-center' : 'max-w-5xl',
+          ].join(' ')}
+        >
+          {isLanding ? (
+            <>
+              <header className="mb-10 text-center sm:mb-12">
+                <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.28em] text-violet-600/90">
+                  Strategic Insight
+                </p>
+                <h1 className="text-balance text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl sm:leading-tight">
+                  리뷰 기반 마케팅 전략 인사이트
+                </h1>
+                <p className="mx-auto mt-5 max-w-md text-pretty text-[15px] leading-relaxed text-slate-500">
+                  올리브영 상품 URL만 입력하면 리뷰를 수집하고, Gemini가 VDL 전략 장표 형태로 해석합니다.
+                  <span className="mt-1 block text-sm text-slate-400">API 키가 없으면 무료 로컬 분석으로 동작합니다.</span>
+                </p>
+              </header>
 
-        <div className="bg-white rounded-2xl border border-violet-100 shadow-sm p-6 mb-8">
-          <form onSubmit={handleAnalyze} className="grid grid-cols-1 lg:grid-cols-12 gap-3">
-            <input
-              type="text"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="올리브영 상품 URL (goodsNo 포함)"
-              className="lg:col-span-8 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-400"
-            />
-            <select
-              value={limit}
-              onChange={(e) => setLimit(Number(e.target.value))}
-              className="lg:col-span-2 border border-slate-200 rounded-xl px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30"
-              title="100 / 500 / 1000건까지 요청할 수 있습니다. 많을수록 수집·AI 분석에 시간이 더 걸립니다."
-            >
-              <option value={100}>100건</option>
-              <option value={500}>500건</option>
-              <option value={1000}>1,000건</option>
-            </select>
-            <button
-              type="submit"
-              disabled={loading || !url.trim()}
-              className="lg:col-span-2 rounded-xl bg-violet-700 text-white font-bold text-sm py-3 hover:bg-violet-800 transition-colors disabled:opacity-50"
-            >
-              {loading ? '분석 중…' : '전략 분석 실행'}
-            </button>
-          </form>
-          <p className="mt-3 text-xs text-slate-500">
-            리뷰 500·1,000건은 수집에 수 분이 걸릴 수 있습니다. 전체 등록 리뷰(예: 1만 걸음)를 한 번에 가져오지는 않고, 여기서 선택한 건수만 샘플링합니다.
-          </p>
-        </div>
+              <div className="w-full rounded-[1.75rem] border border-slate-200/80 bg-white/90 p-3 shadow-[0_24px_64px_-12px_rgba(15,23,42,0.12)] backdrop-blur-md sm:p-4">
+                <form onSubmit={handleAnalyze} className="flex flex-col gap-3">
+                  <div className="relative flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
+                    <input
+                      type="text"
+                      value={url}
+                      onChange={(e) => setUrl(e.target.value)}
+                      placeholder="올리브영 상품 URL을 입력하세요"
+                      className="min-h-[52px] w-full flex-1 rounded-2xl border border-slate-200/90 bg-slate-50/80 px-5 py-3.5 text-[15px] text-slate-800 shadow-inner shadow-slate-200/20 placeholder:text-slate-400 focus:border-violet-300 focus:bg-white focus:outline-none focus:ring-4 focus:ring-violet-500/10"
+                    />
+                    <div className="flex shrink-0 gap-2 sm:w-auto">
+                      <ReviewLimitSelect value={limit} onChange={setLimit} variant="landing" />
+                      <button
+                        type="submit"
+                        disabled={loading || !url.trim()}
+                        className="min-h-[52px] rounded-2xl bg-slate-900 px-6 text-sm font-semibold text-white shadow-lg shadow-slate-900/15 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        {loading ? '분석 중…' : '실행'}
+                      </button>
+                    </div>
+                  </div>
+                  <p className="px-1 text-center text-[12px] leading-relaxed text-slate-400 sm:text-left">
+                    500·1,000건은 수 분 걸릴 수 있습니다. 선택한 건수만 샘플링합니다.
+                  </p>
+                </form>
+              </div>
 
-        {error && (
-          <div className="rounded-2xl border border-red-200 bg-red-50 text-red-700 px-5 py-4 mb-8 text-sm font-medium">
-            {error}
-          </div>
-        )}
+              {error ? (
+                <div className="mt-8 w-full max-w-xl rounded-2xl border border-red-200/80 bg-red-50/90 px-5 py-4 text-center text-sm font-medium text-red-700">
+                  {error}
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <header className="mb-6">
+                <p className="text-xs font-semibold tracking-widest text-violet-600 uppercase mb-1">
+                  Strategic Insight Summary
+                </p>
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+                  리뷰 기반 마케팅 전략 인사이트
+                </h1>
+              </header>
+
+              <div className="mb-8 rounded-2xl border border-slate-200/90 bg-white/95 p-4 shadow-sm backdrop-blur-sm">
+                <form onSubmit={handleAnalyze} className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-3">
+                  <input
+                    type="text"
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    placeholder="올리브영 상품 URL"
+                    className="min-h-11 flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+                  />
+                  <div className="flex gap-2 shrink-0">
+                    <ReviewLimitSelect value={limit} onChange={setLimit} variant="compact" />
+                    <button
+                      type="submit"
+                      disabled={loading || !url.trim()}
+                      className="min-h-11 rounded-xl bg-violet-700 px-5 text-sm font-semibold text-white hover:bg-violet-800 disabled:opacity-50"
+                    >
+                      {loading ? '분석 중…' : '다시 분석'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {error ? (
+                <div className="rounded-2xl border border-red-200 bg-red-50 text-red-700 px-5 py-4 mb-8 text-sm font-medium">
+                  {error}
+                </div>
+              ) : null}
+            </>
+          )}
 
         {result && (
           <>
