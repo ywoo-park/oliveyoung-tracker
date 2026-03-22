@@ -7,6 +7,7 @@ const { crawlAll } = require("./crawler");
 const adminRoutes = require("./routes/admin");
 const dashboardRoutes = require("./routes/dashboard");
 const reviewRoutes = require("./routes/reviews");
+const sessionRoutes = require("./routes/sessions");
 const { initDb } = require("./db");
 
 const app = express();
@@ -54,11 +55,23 @@ app.post("/api/crawl", async (req, res) => {
   await crawlAll();
 });
 
-// DB 미연결 등으로 pool.query 실패 시 프로세스가 죽지 않도록
+// 비동기 라우트 오류 처리 (DB 외 일반 오류와 구분)
 app.use((err, req, res, next) => {
-  console.error("[API Error]", err.message);
-  res.status(503).json({
-    error: "데이터베이스에 연결할 수 없습니다. backend/.env 의 DATABASE_URL 을 확인하세요.",
+  console.error("[API Error]", err);
+  const code = err.code;
+  const isDb =
+    code === "ECONNREFUSED" ||
+    code === "ENOTFOUND" ||
+    code === "57P01" ||
+    (typeof code === "string" && code.startsWith("08"));
+  if (isDb) {
+    return res.status(503).json({
+      error: "데이터베이스에 연결할 수 없습니다. backend/.env 의 DATABASE_URL 을 확인하세요.",
+    });
+  }
+  const status = Number(err.status || err.statusCode) || 500;
+  res.status(status >= 400 && status < 600 ? status : 500).json({
+    error: err.message || "서버 오류가 발생했습니다.",
   });
 });
 
@@ -74,6 +87,7 @@ app.listen(PORT, async () => {
       err.message
     );
     console.error("[Server] DB 없이도 `/api/reviews/analyze` 등 리뷰 API는 동작합니다.");
+    console.error("[Server] 히스토리 영구 저장(`/api/review-sessions`)은 DATABASE_URL 연결 후에만 사용할 수 있습니다.");
   }
   console.log(`[Server] http://localhost:${PORT}`);
   if (dbReady) {

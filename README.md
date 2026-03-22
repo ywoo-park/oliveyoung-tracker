@@ -63,6 +63,13 @@ GEMINI_API_KEY=...           # 또는 GOOGLE_API_KEY=
 
 `backend/.env.example` 참고.
 
+**리뷰 분석 히스토리(사이드바)** 는 `backend/.env`에 **`DATABASE_URL`**(PostgreSQL)이 있으면 **서버 DB**에 저장되고, 없으면 브라우저 **localStorage**만 사용합니다. Railway 등에 Postgres를 붙인 뒤 백엔드를 재시작하면 `review_analysis_sessions` 테이블이 자동 생성됩니다.
+
+- `GET /api/review-sessions` — 목록
+- `POST /api/review-sessions` — 분석 완료 시 저장
+- `PATCH /api/review-sessions/:id` — 표시 이름 변경
+- `DELETE /api/review-sessions/:id` — 삭제
+
 ### 백엔드
 
 ```bash

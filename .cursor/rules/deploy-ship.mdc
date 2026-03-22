@@ -1,0 +1,14 @@
+---
+description: 배포·PR·push·ship 요청 시 ship.mdc 절차 필수 준수
+alwaysApply: true
+---
+
+# 배포 시 `ship.mdc` 준수 (필수)
+
+이 저장소에서 사용자가 **배포**, **배포해줘**, **PR**, **푸시**, **올려줘**, **ship**, **작업 완료** 등 배포·게시와 관련해 요청하면:
+
+1. **반드시** `.cursor/rules/ship.mdc` 파일을 열어 전체 내용을 따른다.
+2. `ship.mdc`에 정의된 순서대로만 진행한다: 변경 확인 → 한국어 커밋 메시지 → `git add` / `commit` / `push origin develop` → `gh pr create` (develop → main) → 완료 안내(Slack 알림 문구 포함).
+3. `ship.mdc`와 다른 방식으로만 배포하지 않는다 (예: main에 직접 푸시, PR 생략 등은 `ship.mdc`에 없으면 하지 않음).
+
+요약: **배포 작업 = `ship.mdc`가 단일 소스 오브 트루스.**
