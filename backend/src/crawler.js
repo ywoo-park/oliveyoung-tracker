@@ -454,9 +454,12 @@ function pushReviewApiItem(collected, seen, item, limit) {
   const text = reviewTextFromItem(item);
   if (text.length < 8 || text.length > 8000) return;
   const rid = reviewIdFromItem(item);
-  const key = rid != null ? `id:${rid}` : `t:${text.slice(0, 280)}`;
-  if (seen.has(key) || collected.length >= limit) return;
-  seen.add(key);
+  const textKey = `t:${text.slice(0, 280)}`;
+  const idKey = rid != null ? `id:${rid}` : null;
+  // id 키와 텍스트 키 둘 다 체크 — pushTextRow와 중복 방지
+  if (seen.has(textKey) || (idKey && seen.has(idKey)) || collected.length >= limit) return;
+  if (idKey) seen.add(idKey);
+  seen.add(textKey);
   collected.push({ text, created: createdFromItem(item) });
 }
 
