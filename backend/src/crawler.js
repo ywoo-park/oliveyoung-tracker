@@ -808,7 +808,7 @@ async function crawlLatestReviewsByProductUrl(productUrl, limit = 100) {
         pushTextRow(collected, seen, row, limit);
       }
     } else if (collected.length < limit) {
-      console.warn("[Crawler] 요청 형식 미포착 — 폴백으로 진행");
+      console.log("[Crawler] 요청 형식 미포착 — m도메인 폴백으로 진행");
     }
 
     // 3) m 도메인 폴백 — 로드 시 스니퍼가 POST 포착할 수 있음
