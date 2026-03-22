@@ -66,11 +66,17 @@ ${corpus}
 - marketingActions: 정확히 4개. number 1~4.
 
 ## ABM 전략 분석 보고서 abmReport (필수) — UI에 그대로 렌더링됨
-1) reviewInsight: 긍/부정 키워드 각각 3~6개(상반된 만족·불만 축), top5Voc 정확히 5개(rank, theme, frequencyLabel은 "약 N%" 또는 "높음/중간" 등 리뷰 근거 표현, summary 한 줄), realVoices는 리뷰 인용 문자열 정확히 3개.
+1) reviewInsight: 긍/부정 키워드 각각 3~6개(상반된 만족·불만 축), top5Voc 정확히 5개(rank, theme, **frequencyPct 필수**: 1~100 정수로 분석 리뷰 코퍼스에서 해당 VOC 테마가 차지하는 대략적 언급·반복 비중%, frequencyLabel은 "높음/중간/낮음" 등 짧은 강도 표현(선택, UI 보조), summary 한 줄), realVoices는 리뷰 인용 문자열 정확히 3개.
 2) uspTop3: 정확히 3개. axis는 "제형/밀착", "지속/표현", "피부타입 최적화" 등 축 이름, headline(한 줄 USP), body(근거·RTB 2~3문장).
 3) painPivot: 정확히 3개. pain(불만 정의), reviewSignal(리뷰에서 읽힌 신호), brandSolution(상세·가이드·구성 등 브랜드 솔루션).
 4) marketingPriority4: 정확히 4개. pillar는 반드시 순서대로 "인플루언서/바이럴", "온드미디어/에셋", "프로모션/굿즈", "브랜딩/이미지", title(짧게), action(실행안 구체적으로).
-5) creativeHooks: 정확히 3개. archetype은 "문제해결형", "감성소구형", "신뢰강조형" 순서, headline, primaryText(2~4문장).
+5) creativeCopy: 매체별 후킹 문구(Headline TOP 3). intro는 2단계 USP·CTR 관점을 한 줄로(2~3문장). types는 정확히 3개, 순서 A→B→C.
+   - types[].letter는 "A","B","C" 고정 순서.
+   - types[].label: A는 "문제해결형 (Problem/Solution)", B는 "감성/경험 소구형 (Emotional/Lifestyle)", C는 "신뢰/성과 강조형 (Authority/Social Proof)" 형식으로.
+   - types[].appeal: 해당 유형의 소구점(불만·감성·신뢰 등)을 1문단으로, 리뷰 VOC와 USP와 연결.
+   - types[].headlines: 정확히 3개 문자열. 광고 헤드라인 후보(따옴표 포함 가능).
+   - types[].primaryText: 위 헤드라인 중 하나를 보완하는 메인 카피 2~4문장.
+   - guidelineBullets: 정확히 3개 문자열 — (1) 의문문·반전 구조 활용 (2) 구체적 숫자·근거로 신뢰 (3) VDL 톤앤매너(세련·시크, 이모지 과다 자제, 짧은 호흡).
 
 ## 스키마 (이 키 구조를 그대로 따를 것)
 {
@@ -94,39 +100,160 @@ ${corpus}
     "uspTop3": [{"axis":"","headline":"","body":""}],
     "painPivot": [{"pain":"","reviewSignal":"","brandSolution":""}],
     "marketingPriority4": [{"pillar":"","title":"","action":""}],
-    "creativeHooks": [{"archetype":"","headline":"","primaryText":""}]
+    "creativeCopy": {
+      "intro": "",
+      "types": [
+        {"letter":"A","label":"문제해결형 (Problem/Solution)","appeal":"","headlines":["","",""],"primaryText":""},
+        {"letter":"B","label":"감성/경험 소구형 (Emotional/Lifestyle)","appeal":"","headlines":["","",""],"primaryText":""},
+        {"letter":"C","label":"신뢰/성과 강조형 (Authority/Social Proof)","appeal":"","headlines":["","",""],"primaryText":""}
+      ],
+      "guidelineBullets": ["","",""]
+    }
   }
 }`;
 }
 
+const DEFAULT_CREATIVE_GUIDELINES = [
+  '의문문이나 반전: "아직도 수정 화장하세요?" 같은 의문문이나, "파운데이션인 줄 알았는데 스킨케어네요" 같은 반전 구조를 활용하세요.',
+  "숫자 활용: '8시간 유지', '99% 만족' 등 구체적인 숫자를 넣어 신뢰도를 높이세요.",
+  "VDL 톤앤매너: 세련되고 시크한 느낌을 위해 과도한 이모지 사용은 자제하고, 문장의 호흡을 짧게 끊어 임팩트를 주세요.",
+];
+
+const CREATIVE_TYPE_DEFAULTS = [
+  { letter: "A", label: "문제해결형 (Problem/Solution)" },
+  { letter: "B", label: "감성/경험 소구형 (Emotional/Lifestyle)" },
+  { letter: "C", label: "신뢰/성과 강조형 (Authority/Social Proof)" },
+];
+
+function archetypeToShortLabel(archetype) {
+  const a = String(archetype || "").trim();
+  if (a.includes("문제") || a.includes("Problem")) return "문제해결형";
+  if (a.includes("감성") || a.includes("Emotional") || a.includes("라이프")) return "감성소구형";
+  if (a.includes("신뢰") || a.includes("Authority") || a.includes("성과")) return "신뢰강조형";
+  return a || "유형";
+}
+
+function normalizeCreativeCopy(raw) {
+  const padHeadlines = (arr) => {
+    const h = Array.isArray(arr)
+      ? arr.map((s) => String(s).trim()).slice(0, 3)
+      : [];
+    while (h.length < 3) h.push("");
+    return h;
+  };
+
+  const cc = raw && typeof raw === "object" ? raw.creativeCopy : null;
+  if (cc && typeof cc === "object" && Array.isArray(cc.types) && cc.types.length > 0) {
+    const types = CREATIVE_TYPE_DEFAULTS.map((def, i) => {
+      const t = cc.types[i] || {};
+      const headlines = padHeadlines(t.headlines);
+      return {
+        letter: String(t.letter || def.letter).toUpperCase().slice(0, 1) || def.letter,
+        label: String(t.label || def.label).trim() || def.label,
+        appeal: String(t.appeal || t.sellingAngle || "").trim(),
+        headlines: headlines,
+        primaryText: String(t.primaryText || "").trim(),
+      };
+    });
+    const guidelineBullets = Array.isArray(cc.guidelineBullets)
+      ? cc.guidelineBullets.map((s) => String(s).trim()).filter(Boolean).slice(0, 6)
+      : [];
+    const gl =
+      guidelineBullets.length >= 3
+        ? guidelineBullets.slice(0, 3)
+        : [...DEFAULT_CREATIVE_GUIDELINES];
+    return {
+      intro: String(cc.intro || cc.subtitle || "").trim(),
+      types,
+      guidelineBullets: gl,
+    };
+  }
+
+  /** 레거시 creativeHooks → 신규 구조 */
+  const hooks = Array.isArray(raw?.creativeHooks) ? raw.creativeHooks : [];
+  const shortArchetypes = ["문제해결형", "감성소구형", "신뢰강조형"];
+  const types = CREATIVE_TYPE_DEFAULTS.map((def, i) => {
+    const row = hooks[i] || {};
+    const h1 = String(row.headline || "").trim();
+    const h2 = String(row.headline2 || "").trim();
+    const h3 = String(row.headline3 || "").trim();
+    const headlines = padHeadlines(
+      h2 || h3 ? [h1, h2, h3] : h1 ? [h1] : []
+    );
+    return {
+      letter: def.letter,
+      label: def.label,
+      appeal: String(row.appeal || "").trim(),
+      headlines,
+      primaryText: String(row.primaryText || "").trim(),
+    };
+  });
+  return {
+    intro: "",
+    types,
+    guidelineBullets: [...DEFAULT_CREATIVE_GUIDELINES],
+  };
+}
+
+function deriveCreativeHooksFromCopy(creativeCopy) {
+  const shortArchetypes = ["문제해결형", "감성소구형", "신뢰강조형"];
+  return (creativeCopy.types || []).slice(0, 3).map((t, i) => {
+    const parts = (t.headlines || []).map((x) => String(x).trim()).filter(Boolean);
+    return {
+      archetype: shortArchetypes[i] || archetypeToShortLabel(t.label),
+      headline: parts[0] || "",
+      primaryText: t.primaryText || "",
+    };
+  });
+}
+
+function deriveFrequencyPct(row) {
+  const raw = row?.frequencyPct ?? row?.frequency_pct ?? row?.frequencyPercent;
+  const n = Number(raw);
+  if (Number.isFinite(n) && n >= 0 && n <= 100) return Math.round(n);
+  const label = String(row?.frequencyLabel || row?.frequency || "");
+  const m = label.match(/(\d{1,3})\s*%/);
+  if (m) return Math.min(100, Math.max(0, parseInt(m[1], 10)));
+  return null;
+}
+
 function normalizeAbmReport(raw) {
+  const emptyRi = {
+    positiveKeywords: [],
+    negativeKeywords: [],
+    top5Voc: [],
+    realVoices: [],
+  };
+  const emptyCopy = normalizeCreativeCopy(null);
   const empty = {
-    reviewInsight: {
-      positiveKeywords: [],
-      negativeKeywords: [],
-      top5Voc: [],
-      realVoices: [],
-    },
+    reviewInsight: emptyRi,
     uspTop3: [],
     painPivot: [],
     marketingPriority4: [],
-    creativeHooks: [],
+    creativeCopy: emptyCopy,
+    creativeHooks: deriveCreativeHooksFromCopy(emptyCopy),
   };
   if (!raw || typeof raw !== "object") return empty;
 
   const ri = raw.reviewInsight || {};
   const top5Voc = Array.isArray(ri.top5Voc)
-    ? ri.top5Voc.slice(0, 5).map((row, i) => ({
-        rank: Number(row.rank) || i + 1,
-        theme: String(row.theme || "").trim(),
-        frequencyLabel: String(row.frequencyLabel || row.frequency || "").trim(),
-        summary: String(row.summary || "").trim(),
-      }))
+    ? ri.top5Voc.slice(0, 5).map((row, i) => {
+        const frequencyPct = deriveFrequencyPct(row);
+        return {
+          rank: Number(row.rank) || i + 1,
+          theme: String(row.theme || "").trim(),
+          frequencyPct,
+          frequencyLabel: String(row.frequencyLabel || row.frequency || "").trim(),
+          summary: String(row.summary || "").trim(),
+        };
+      })
     : [];
 
   const realVoices = Array.isArray(ri.realVoices)
     ? ri.realVoices.map((s) => String(s).trim()).filter(Boolean).slice(0, 5)
     : [];
+
+  const creativeCopy = normalizeCreativeCopy(raw);
 
   return {
     reviewInsight: {
@@ -160,13 +287,8 @@ function normalizeAbmReport(raw) {
           action: String(row.action || "").trim(),
         }))
       : [],
-    creativeHooks: Array.isArray(raw.creativeHooks)
-      ? raw.creativeHooks.slice(0, 3).map((row) => ({
-          archetype: String(row.archetype || "").trim(),
-          headline: String(row.headline || "").trim(),
-          primaryText: String(row.primaryText || "").trim(),
-        }))
-      : [],
+    creativeCopy,
+    creativeHooks: deriveCreativeHooksFromCopy(creativeCopy),
   };
 }
 

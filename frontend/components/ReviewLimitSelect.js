@@ -62,7 +62,7 @@ export default function ReviewLimitSelect({ value, onChange, variant = 'landing'
         aria-label="분석할 리뷰 건수"
         title="100 / 500 / 1,000건까지 요청할 수 있습니다."
         onClick={() => setOpen((v) => !v)}
-        className={`${triggerBase} flex w-full items-center justify-between gap-3 transition hover:border-slate-300 hover:bg-slate-50/80 focus:border-violet-300 focus:outline-none focus:ring-4 focus:ring-violet-500/10 ${open ? 'border-violet-300 ring-4 ring-violet-500/10' : ''}`}
+        className={`${triggerBase} flex w-full items-center justify-between gap-3 transition hover:border-mood-feather/20 hover:bg-mood-celery/15 focus:border-mood-oasis focus:outline-none focus:ring-4 focus:ring-mood-oasis/25 ${open ? 'border-mood-oasis ring-4 ring-mood-oasis/25' : ''}`}
       >
         <span className="tabular-nums">{selected.label}</span>
         <Chevron open={open} />
@@ -87,12 +87,12 @@ export default function ReviewLimitSelect({ value, onChange, variant = 'landing'
                     setOpen(false);
                   }}
                   className={`flex w-full items-center gap-3 px-3.5 py-2.5 text-left text-[15px] font-medium tracking-tight text-slate-800 transition hover:bg-slate-50 sm:text-sm ${
-                    active ? 'bg-violet-50/90 text-violet-900' : ''
+                    active ? 'bg-mood-oasis/40 text-mood-feather' : ''
                   }`}
                 >
                   {active ? (
                     <span
-                      className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-violet-600 text-[10px] font-bold leading-none text-white"
+                      className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-mood-oasis text-[10px] font-bold leading-none text-mood-feather"
                       aria-hidden
                     >
                       ✓
