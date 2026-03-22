@@ -13,9 +13,8 @@ const {
 /** 우선 시도 순서 — 앞 모델이 404/미지원이면 다음으로 */
 const MODEL_FALLBACK_CHAIN = [
   process.env.GEMINI_MODEL,
-  "gemini-1.5-flash-002",
-  "gemini-1.5-flash-001",
-  "gemini-1.5-flash-8b",
+  "gemini-2.5-flash-lite",
+  "gemini-2.5-flash",
 ].filter(Boolean);
 
 function uniqueModels(list) {
