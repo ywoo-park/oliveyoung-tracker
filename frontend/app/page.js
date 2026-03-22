@@ -9,16 +9,244 @@ function pct(part, total) {
   return ((part / total) * 100).toFixed(1);
 }
 
-function strengthBarClass(strength) {
-  if (strength === 'high') return 'bg-violet-600 w-full';
-  if (strength === 'medium') return 'bg-violet-400 w-2/3';
-  return 'bg-violet-200 w-1/3';
+function ReportDivider() {
+  return <hr className="my-8 border-0 border-t border-slate-200" />;
 }
 
-function strengthLabel(strength) {
-  if (strength === 'high') return '높음';
-  if (strength === 'medium') return '보통';
-  return '낮음';
+function AbmStrategicReport({ abm, sentimentRatio, keywords }) {
+  if (!abm?.reviewInsight?.top5Voc?.length && !abm?.uspTop3?.length) return null;
+  const ri = abm.reviewInsight || {};
+  const total = sentimentRatio?.total || 0;
+
+  return (
+    <article className="mb-10 rounded-3xl border border-slate-200/80 bg-white shadow-[0_4px_24px_-4px_rgba(15,23,42,0.08)] overflow-hidden">
+      <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50 to-violet-50/40 px-6 sm:px-10 py-6">
+        <p className="text-[10px] font-bold tracking-[0.2em] text-violet-600 uppercase mb-1">
+          VDL · ABM Strategic Report
+        </p>
+        <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
+          전략 분석 보고서
+        </h2>
+        <p className="text-xs text-slate-500 mt-2 max-w-2xl leading-relaxed">
+          Modern &amp; Professional — 데이터 기반 현상 분석부터 크리에이티브 훅까지 논리적 흐름으로 정리했습니다.
+        </p>
+      </div>
+
+      <div className="px-6 sm:px-10 py-8 text-slate-800">
+        {/* 1️⃣ Review Insight */}
+        <h3 className="text-base font-bold text-slate-900 mb-1 flex items-center gap-2">
+          <span className="text-lg" aria-hidden>
+            1️⃣
+          </span>
+          [Review Insight] 현상 분석 (Data Driven)
+        </h3>
+        <p className="text-xs text-slate-500 mb-4">긍·부정 비율, 핵심 키워드, Top 5 VOC, Real Voice</p>
+
+        <div className="overflow-x-auto rounded-xl border border-slate-200 mb-4">
+          <table className="min-w-full text-sm">
+            <thead className="bg-slate-50 text-left text-xs font-bold text-slate-600 uppercase tracking-wide">
+              <tr>
+                <th className="px-4 py-3 border-b border-slate-200">구분</th>
+                <th className="px-4 py-3 border-b border-slate-200">비율</th>
+                <th className="px-4 py-3 border-b border-slate-200">해석</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              <tr>
+                <td className="px-4 py-3 font-semibold text-violet-700">긍정</td>
+                <td className="px-4 py-3 tabular-nums font-bold">{pct(sentimentRatio?.positive, total)}%</td>
+                <td className="px-4 py-3 text-slate-600 text-xs">만족·재구매·추천 톤 비중</td>
+              </tr>
+              <tr>
+                <td className="px-4 py-3 font-semibold text-rose-700">부정</td>
+                <td className="px-4 py-3 tabular-nums font-bold">{pct(sentimentRatio?.negative, total)}%</td>
+                <td className="px-4 py-3 text-slate-600 text-xs">아쉬움·불만 키워드 비중</td>
+              </tr>
+              <tr>
+                <td className="px-4 py-3 font-semibold text-slate-600">중립</td>
+                <td className="px-4 py-3 tabular-nums font-bold">{pct(sentimentRatio?.neutral, total)}%</td>
+                <td className="px-4 py-3 text-slate-600 text-xs">사용 맥락·묘사 위주</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div className="rounded-xl border border-slate-200 p-4 bg-slate-50/50">
+            <p className="text-[10px] font-bold text-violet-700 uppercase mb-2">만족 축 키워드</p>
+            <p className="text-sm leading-relaxed">
+              {(ri.positiveKeywords?.length
+                ? ri.positiveKeywords
+                : (keywords || []).slice(0, 6).map((k) => k.word)
+              ).map((k, i, arr) => (
+                <span key={`${k}-${i}`}>
+                  {i > 0 ? ', ' : ''}
+                  <strong className="text-slate-900">{k}</strong>
+                </span>
+              ))}
+            </p>
+          </div>
+          <div className="rounded-xl border border-slate-200 p-4 bg-amber-50/40">
+            <p className="text-[10px] font-bold text-amber-800 uppercase mb-2">불만·리스크 축 키워드</p>
+            <p className="text-sm leading-relaxed text-slate-800">
+              {(ri.negativeKeywords || []).map((k, i, arr) => (
+                <span key={`${k}-${i}`}>
+                  {i > 0 ? ', ' : ''}
+                  <strong>{k}</strong>
+                </span>
+              ))}
+            </p>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto rounded-xl border border-slate-200 mb-4">
+          <table className="min-w-full text-sm">
+            <thead className="bg-slate-50 text-left text-xs font-bold text-slate-600 uppercase tracking-wide">
+              <tr>
+                <th className="px-4 py-3 border-b border-slate-200">#</th>
+                <th className="px-4 py-3 border-b border-slate-200">VOC 테마</th>
+                <th className="px-4 py-3 border-b border-slate-200">빈도·강도</th>
+                <th className="px-4 py-3 border-b border-slate-200">요약</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {(ri.top5Voc || []).map((row) => (
+                <tr key={row.rank}>
+                  <td className="px-4 py-3 font-bold text-violet-600 tabular-nums">{row.rank}</td>
+                  <td className="px-4 py-3 font-semibold text-slate-900">{row.theme}</td>
+                  <td className="px-4 py-3 text-xs text-slate-600">{row.frequencyLabel}</td>
+                  <td className="px-4 py-3 text-xs text-slate-600">{row.summary}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <p className="text-[10px] font-bold text-slate-500 uppercase mb-2">Real Voice</p>
+        <div className="space-y-2">
+          {(ri.realVoices || []).map((q, i) => (
+            <blockquote
+              key={i}
+              className="border-l-4 border-violet-400 bg-violet-50/50 pl-4 py-3 pr-3 text-sm text-slate-700 italic rounded-r-lg"
+            >
+              &ldquo;{q}&rdquo;
+            </blockquote>
+          ))}
+        </div>
+
+        <ReportDivider />
+
+        {/* 2️⃣ USP */}
+        <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
+          <span className="text-lg" aria-hidden>
+            2️⃣
+          </span>
+          [Core Selling Points] 핵심 셀링 포인트 (USP TOP 3)
+        </h3>
+        <ol className="space-y-4 list-none counter-reset-none">
+          {(abm.uspTop3 || []).map((u, idx) => (
+            <li
+              key={idx}
+              className="rounded-xl border border-violet-100 bg-gradient-to-br from-white to-violet-50/30 p-5 shadow-sm"
+            >
+              <p className="text-[10px] font-bold text-violet-600 uppercase mb-1">
+                Point {idx + 1}: {u.axis}
+              </p>
+              <p className="font-extrabold text-slate-900 mb-2">{u.headline}</p>
+              <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{u.body}</p>
+            </li>
+          ))}
+        </ol>
+
+        <ReportDivider />
+
+        {/* 3️⃣ Pain Pivot */}
+        <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
+          <span className="text-lg" aria-hidden>
+            3️⃣
+          </span>
+          [Strategic Solution] 페인포인트 대응 (Problem Solving)
+        </h3>
+        <div className="overflow-x-auto rounded-xl border border-slate-200">
+          <table className="min-w-full text-sm">
+            <thead className="bg-slate-50 text-left text-xs font-bold text-slate-600 uppercase tracking-wide">
+              <tr>
+                <th className="px-4 py-3 border-b border-slate-200">Pain</th>
+                <th className="px-4 py-3 border-b border-slate-200">Review signal</th>
+                <th className="px-4 py-3 border-b border-slate-200">Brand solution</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {(abm.painPivot || []).map((row, i) => (
+                <tr key={i}>
+                  <td className="px-4 py-3 font-semibold text-slate-900 align-top">{row.pain}</td>
+                  <td className="px-4 py-3 text-xs text-slate-600 align-top">{row.reviewSignal}</td>
+                  <td className="px-4 py-3 text-xs text-slate-700 align-top leading-relaxed">{row.brandSolution}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <ReportDivider />
+
+        {/* 4️⃣ Marketing */}
+        <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
+          <span className="text-lg" aria-hidden>
+            4️⃣
+          </span>
+          [Marketing Action] 핵심 액션 제안 (Priority TOP 4)
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {(abm.marketingPriority4 || []).map((m, idx) => (
+            <div
+              key={idx}
+              className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm relative overflow-hidden"
+            >
+              <span className="absolute top-3 right-4 text-3xl font-black text-slate-100 tabular-nums">
+                {String(idx + 1).padStart(2, '0')}
+              </span>
+              <p className="text-[10px] font-bold text-violet-600 uppercase mb-2">{m.pillar}</p>
+              <p className="font-bold text-slate-900 mb-2">{m.title}</p>
+              <p className="text-sm text-slate-600 leading-relaxed">{m.action}</p>
+            </div>
+          ))}
+        </div>
+
+        <ReportDivider />
+
+        {/* 5️⃣ Creative */}
+        <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
+          <span className="text-lg" aria-hidden>
+            5️⃣
+          </span>
+          [Creative Copy] 매체별 후킹 문구
+        </h3>
+        <div className="overflow-x-auto rounded-xl border border-slate-200">
+          <table className="min-w-full text-sm">
+            <thead className="bg-slate-50 text-left text-xs font-bold text-slate-600 uppercase tracking-wide">
+              <tr>
+                <th className="px-4 py-3 border-b border-slate-200 w-32">유형</th>
+                <th className="px-4 py-3 border-b border-slate-200">Headline</th>
+                <th className="px-4 py-3 border-b border-slate-200">Primary text</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {(abm.creativeHooks || []).map((c, i) => (
+                <tr key={i}>
+                  <td className="px-4 py-3 font-bold text-violet-700 align-top whitespace-nowrap">{c.archetype}</td>
+                  <td className="px-4 py-3 font-semibold text-slate-900 align-top">{c.headline}</td>
+                  <td className="px-4 py-3 text-slate-600 align-top leading-relaxed whitespace-pre-wrap">
+                    {c.primaryText}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </article>
+  );
 }
 
 export default function Home() {
@@ -207,6 +435,14 @@ export default function Home() {
               </div>
             </div>
 
+            {si?.abmReport && (
+              <AbmStrategicReport
+                abm={si.abmReport}
+                sentimentRatio={result.sentimentRatio}
+                keywords={result.keywords}
+              />
+            )}
+
             {result.strategicInsightsError && (
               <div className="rounded-2xl border border-amber-200 bg-amber-50 text-amber-900 px-5 py-4 mb-8 text-sm">
                 <p className="font-bold mb-1">AI 전략 인사이트를 불러오지 못했습니다</p>
@@ -218,302 +454,6 @@ export default function Home() {
                   실패 시에만 Claude 키가 쓰입니다.
                 </p>
               </div>
-            )}
-
-            {si && (
-              <>
-                {/* VDL 전략 장표 — Streamlit st.info / st.warning 스타일 가이드 */}
-                {(si.positioningSummary ||
-                  (si.painPointsTop5 && si.painPointsTop5.length > 0) ||
-                  (si.satisfactionFactors && si.satisfactionFactors.length > 0)) && (
-                  <section className="mb-10">
-                    <div className="flex items-center gap-2 mb-4">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-100 text-sky-800 text-sm font-bold">
-                        ★
-                      </span>
-                      <div>
-                        <h2 className="text-lg font-extrabold text-slate-900">VDL 전략 장표 · 마케팅 보고서 뷰</h2>
-                        <p className="text-xs text-slate-500">
-                          포지셔닝·VOC·기획 개선안 — 마케터/기획자용 톤 (USPs, 페인포인트, RTB 등)
-                        </p>
-                      </div>
-                    </div>
-
-                    {si.positioningSummary ? (
-                      <div className="mb-5 rounded-xl border-l-4 border-sky-500 bg-sky-50/90 px-4 py-3 text-sm text-sky-950 shadow-sm">
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-sky-700 mb-1">
-                          포지셔닝 요약 (한 줄)
-                        </p>
-                        <p className="font-semibold leading-relaxed">{si.positioningSummary}</p>
-                      </div>
-                    ) : null}
-
-                    {si.painPointsTop5 && si.painPointsTop5.length > 0 ? (
-                      <div className="mb-5 rounded-xl border-l-4 border-sky-500 bg-sky-50/90 px-4 py-4 shadow-sm">
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-sky-700 mb-3">
-                          페인포인트 Top 5 &amp; 생생 VOC
-                        </p>
-                        <ol className="space-y-4 list-decimal list-inside marker:font-bold marker:text-sky-700">
-                          {si.painPointsTop5.map((row, idx) => (
-                            <li key={idx} className="text-sm text-slate-800">
-                              <span className="font-bold text-slate-900">{row.pain}</span>
-                              {(row.vocQuotes || []).length > 0 && (
-                                <ul className="mt-2 ml-4 space-y-1.5 border-l-2 border-sky-200 pl-3">
-                                  {(row.vocQuotes || []).map((q, qi) => (
-                                    <li key={qi} className="text-xs text-slate-600 italic">
-                                      “{q}”
-                                    </li>
-                                  ))}
-                                </ul>
-                              )}
-                            </li>
-                          ))}
-                        </ol>
-                      </div>
-                    ) : null}
-
-                    {si.satisfactionFactors && si.satisfactionFactors.length > 0 ? (
-                      <div className="mb-5 rounded-xl border-l-4 border-sky-500 bg-sky-50/90 px-4 py-3 shadow-sm">
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-sky-700 mb-2">
-                          핵심 만족 요인 (소비자 언어)
-                        </p>
-                        <ul className="list-disc list-inside space-y-1 text-sm text-slate-800">
-                          {si.satisfactionFactors.map((line, i) => (
-                            <li key={i}>{line}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : null}
-
-                    {si.dissatisfactionFactors && si.dissatisfactionFactors.length > 0 ? (
-                      <div className="mb-5 rounded-xl border-l-4 border-amber-500 bg-amber-50/95 px-4 py-3 shadow-sm">
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-amber-800 mb-2">
-                          핵심 불만족 요인 (소비자 언어)
-                        </p>
-                        <ul className="list-disc list-inside space-y-1 text-sm text-amber-950">
-                          {si.dissatisfactionFactors.map((line, i) => (
-                            <li key={i}>{line}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : null}
-
-                    {si.improvementActions && si.improvementActions.length > 0 ? (
-                      <div className="space-y-3 mb-2">
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 px-1">
-                          제품 기획 관점 개선안 (실행 가능 수준)
-                        </p>
-                        {si.improvementActions.map((row, idx) => (
-                          <div
-                            key={idx}
-                            className="rounded-xl border-l-4 border-violet-500 bg-violet-50/80 px-4 py-3 text-sm shadow-sm"
-                          >
-                            <p className="text-xs font-bold text-violet-900 mb-1">{row.targetIssue}</p>
-                            <p className="text-slate-800 leading-relaxed">{row.productPlanningActions}</p>
-                          </div>
-                        ))}
-                      </div>
-                    ) : null}
-                  </section>
-                )}
-
-                {/* 1. 페인 포인트 → 솔루션 */}
-                <section className="mb-10">
-                  <div className="flex items-center gap-2 mb-4">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-100 text-violet-700 text-sm font-bold">
-                      1
-                    </span>
-                    <div>
-                      <h2 className="text-lg font-extrabold text-slate-900">페인 포인트 & 상세페이지 솔루션</h2>
-                      <p className="text-xs text-slate-500">부정·아쉬움 패턴 상위 3가지와 마케팅 관점 대응</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {(si.painPointSolutions || []).slice(0, 3).map((p, idx) => (
-                      <article
-                        key={idx}
-                        className="rounded-2xl border border-violet-100 bg-white p-5 shadow-sm flex flex-col"
-                      >
-                        <div className="flex items-start justify-between gap-2 mb-3">
-                          <span className="text-xs font-bold text-violet-600 bg-violet-50 px-2 py-0.5 rounded-md">
-                            TOP {p.rank ?? idx + 1}
-                          </span>
-                        </div>
-                        <h3 className="font-bold text-slate-900 text-sm leading-snug mb-2">{p.title}</h3>
-                        <p className="text-xs text-slate-500 leading-relaxed flex-1 mb-3 border-l-2 border-slate-200 pl-2">
-                          {p.evidenceSummary}
-                        </p>
-                        <div className="space-y-2 mt-auto">
-                          <div className="rounded-xl bg-slate-50 p-3">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">상세페이지 대응</p>
-                            <p className="text-xs text-slate-700 leading-relaxed">{p.detailPageSolution}</p>
-                          </div>
-                          <div className="rounded-xl bg-violet-50/80 p-3 border border-violet-100">
-                            <p className="text-[10px] font-bold text-violet-600 uppercase mb-1">마케팅 멘트</p>
-                            <p className="text-xs font-semibold text-violet-900 leading-relaxed">{p.marketingMent}</p>
-                          </div>
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                </section>
-
-                {/* 2. 셀링 포인트 + 메타 카피 */}
-                <section className="mb-10">
-                  <div className="flex items-center gap-2 mb-4">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-100 text-violet-700 text-sm font-bold">
-                      2
-                    </span>
-                    <div>
-                      <h2 className="text-lg font-extrabold text-slate-900">핵심 셀링 포인트 & 메타 후킹 카피</h2>
-                      <p className="text-xs text-slate-500">리얼 보이스를 녹인 집행용 카피 3종</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-                    {(si.sellingPoints || []).slice(0, 2).map((s, idx) => (
-                      <article
-                        key={idx}
-                        className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-violet-50/40 p-5"
-                      >
-                        <p className="text-[10px] font-bold text-violet-600 uppercase mb-1">Selling Point {idx + 1}</p>
-                        <h3 className="font-extrabold text-slate-900 mb-2">{s.title}</h3>
-                        <p className="text-sm text-slate-600 mb-3">{s.description}</p>
-                        <div className="rounded-xl bg-slate-900 text-white p-3">
-                          <p className="text-[10px] font-bold text-violet-300 uppercase mb-1">Real Voice</p>
-                          <ul className="text-xs leading-relaxed space-y-1">
-                            {(s.realVoiceQuotes || []).map((q, qi) => (
-                              <li key={qi} className="opacity-95">
-                                “{q}”
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                  <div className="space-y-3">
-                    {(si.metaAdCopies || []).slice(0, 3).map((ad, idx) => (
-                      <article
-                        key={idx}
-                        className="rounded-2xl border border-violet-200 bg-white p-5 shadow-sm"
-                      >
-                        <div className="flex flex-wrap items-center gap-2 mb-2">
-                          <span className="text-xs font-bold text-white bg-violet-700 px-2 py-0.5 rounded-md">
-                            {ad.label || `카피 ${idx + 1}`}
-                          </span>
-                        </div>
-                        <p className="text-base font-extrabold text-slate-900 mb-2">{ad.headline}</p>
-                        <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{ad.primaryText}</p>
-                        {ad.ctaHint && (
-                          <p className="mt-3 text-xs font-semibold text-violet-700 border-t border-violet-100 pt-3">
-                            CTA · {ad.ctaHint}
-                          </p>
-                        )}
-                      </article>
-                    ))}
-                  </div>
-                </section>
-
-                {/* 3. 사용 맥락 */}
-                <section className="mb-10">
-                  <div className="flex items-center gap-2 mb-4">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-100 text-violet-700 text-sm font-bold">
-                      3
-                    </span>
-                    <div>
-                      <h2 className="text-lg font-extrabold text-slate-900">사용 맥락 · 시즌 & 상황</h2>
-                      <p className="text-xs text-slate-500">언제·어떤 상황에 쓰는지 리뷰 기반 추론</p>
-                    </div>
-                  </div>
-                  <div className="rounded-2xl border border-violet-100 bg-white p-6 shadow-sm">
-                    <p className="text-sm text-slate-700 leading-relaxed mb-6">{si.usageContext?.executiveSummary}</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <p className="text-xs font-bold text-slate-400 uppercase mb-3">계절 언급 강도</p>
-                        <ul className="space-y-3">
-                          {(si.usageContext?.topSeasons || []).map((row, i) => (
-                            <li key={i}>
-                              <div className="flex justify-between text-xs mb-1">
-                                <span className="font-semibold text-slate-800">{row.name}</span>
-                                <span className="text-slate-500">{strengthLabel(row.strength)}</span>
-                              </div>
-                              <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
-                                <div className={`h-full rounded-full transition-all ${strengthBarClass(row.strength)}`} />
-                              </div>
-                              <p className="text-[11px] text-slate-500 mt-1">{row.rationale}</p>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-slate-400 uppercase mb-3">사용 상황</p>
-                        <ul className="space-y-3">
-                          {(si.usageContext?.topSituations || []).map((row, i) => (
-                            <li key={i}>
-                              <div className="flex justify-between text-xs mb-1">
-                                <span className="font-semibold text-slate-800">{row.name}</span>
-                                <span className="text-slate-500">{strengthLabel(row.strength)}</span>
-                              </div>
-                              <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
-                                <div className={`h-full rounded-full ${strengthBarClass(row.strength)}`} />
-                              </div>
-                              <p className="text-[11px] text-slate-500 mt-1">{row.rationale}</p>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                </section>
-
-                {/* 4. 마케팅 액션 */}
-                <section className="mb-10">
-                  <div className="flex items-center gap-2 mb-4">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-100 text-violet-700 text-sm font-bold">
-                      4
-                    </span>
-                    <div>
-                      <h2 className="text-lg font-extrabold text-slate-900">핵심 마케팅 액션 제안</h2>
-                      <p className="text-xs text-slate-500">분석을 종합한 집행 우선순위 4가지</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {(si.marketingActions || []).slice(0, 4).map((a, idx) => (
-                      <article
-                        key={idx}
-                        className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm relative overflow-hidden"
-                      >
-                        <div className="absolute top-0 right-0 w-16 h-16 bg-violet-100 rounded-bl-full opacity-60" />
-                        <span className="relative text-3xl font-black text-violet-200 tabular-nums">
-                          {String(a.number ?? idx + 1).padStart(2, '0')}
-                        </span>
-                        <h3 className="relative font-bold text-slate-900 mt-1 mb-2">{a.title}</h3>
-                        <p className="relative text-sm text-slate-600 leading-relaxed mb-3">{a.description}</p>
-                        <p className="relative text-[11px] text-violet-700 font-medium border-t border-slate-100 pt-3">
-                          제안 근거 · {a.rationale}
-                        </p>
-                      </article>
-                    ))}
-                  </div>
-                </section>
-              </>
-            )}
-
-            {/* 키워드만 축소 표시 */}
-            {result.keywords?.length > 0 && (
-              <section className="rounded-2xl border border-slate-100 bg-white/80 p-4">
-                <p className="text-[11px] font-bold text-slate-400 uppercase mb-2">참고 · 리뷰 키워드 상위</p>
-                <div className="flex flex-wrap gap-2">
-                  {result.keywords.map((k) => (
-                    <span
-                      key={k.word}
-                      className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600"
-                    >
-                      {k.word} <span className="text-slate-400">{k.count}</span>
-                    </span>
-                  ))}
-                </div>
-              </section>
             )}
           </>
         )}
