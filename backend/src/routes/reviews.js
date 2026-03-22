@@ -1,5 +1,9 @@
 const express = require("express");
 const { crawlLatestReviewsByProductUrl } = require("../crawler");
+const { normalizeInsights } = require("../strategicInsightsCore");
+const { generateStrategicInsights: generateClaudeStrategicInsights } = require("../claudeInsights");
+const { generateGeminiStrategicInsights } = require("../geminiInsights");
+const { generateFreeStrategicInsights } = require("../freeInsights");
 
 const router = express.Router();
 
@@ -54,33 +58,6 @@ function topKeywords(reviews, limit = 30) {
     .map(([word, count]) => ({ word, count }));
 }
 
-function rankMentions(reviews, lexicon) {
-  const scored = reviews
-    .map((text) => {
-      const score = lexicon.reduce((acc, word) => acc + ((text.includes(word) ? 1 : 0)), 0);
-      return { text, score };
-    })
-    .filter((x) => x.score > 0)
-    .sort((a, b) => b.score - a.score || b.text.length - a.text.length);
-  return scored.map((x) => x.text);
-}
-
-function buildAdCopies(consumerVoices, painPoints) {
-  const positives = consumerVoices.slice(0, 3);
-  const negatives = painPoints.slice(0, 2);
-  return [
-    `"${
-      positives[0] || "한 번 써보면 다시 찾게 되는"
-    }" - 실제 리뷰 기반으로 만든 신뢰형 카피`,
-    `"${
-      positives[1] || "바르자마자 느껴지는 사용감"
-    }" - 사용 순간 가치를 강조하는 체감형 카피`,
-    `"${
-      negatives[0] || "불편함을 줄이고 핵심 효능은 살린"
-    }" - 불만 포인트를 개선하는 문제해결형 카피`,
-  ];
-}
-
 router.post("/reviews/analyze", async (req, res) => {
   const { url, limit = 80 } = req.body || {};
   if (!url) {
@@ -96,11 +73,62 @@ router.post("/reviews/analyze", async (req, res) => {
     const positive = sentiments.filter((x) => x.sentiment === "positive").map((x) => x.text);
     const negative = sentiments.filter((x) => x.sentiment === "negative").map((x) => x.text);
     const neutral = sentiments.filter((x) => x.sentiment === "neutral").map((x) => x.text);
+    const keywords = topKeywords(scraped.reviews, 25);
 
-    const consumerVoices = rankMentions(positive, POSITIVE_WORDS).slice(0, 8);
-    const painPoints = rankMentions(negative, NEGATIVE_WORDS).slice(0, 8);
-    const keywords = topKeywords(scraped.reviews, 35);
-    const adCopies = buildAdCopies(consumerVoices, painPoints);
+    const insightInput = {
+      reviews: scraped.reviews,
+      positive,
+      negative,
+      keywords,
+    };
+
+    let strategicInsights = generateFreeStrategicInsights(insightInput);
+    let strategicInsightsSource = "free";
+    let strategicInsightsError = null;
+
+    const useFreeOnly = String(process.env.USE_FREE_INSIGHTS_ONLY || "").toLowerCase() === "true";
+    const hasGemini = Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY);
+    const hasClaude = Boolean(process.env.ANTHROPIC_API_KEY);
+
+    const aiPayload = {
+      reviews: scraped.reviews,
+      meta: { goodsNo: scraped.goodsNo, count: scraped.count },
+    };
+
+    if (!useFreeOnly && hasGemini) {
+      try {
+        const raw = await generateGeminiStrategicInsights(aiPayload);
+        strategicInsights = normalizeInsights(raw);
+        strategicInsightsSource = "gemini";
+      } catch (geminiErr) {
+        const geminiMsg = geminiErr.message || String(geminiErr);
+        console.error("[reviews/analyze] Gemini 실패:", geminiMsg);
+        if (hasClaude) {
+          try {
+            const raw = await generateClaudeStrategicInsights(aiPayload);
+            strategicInsights = normalizeInsights(raw);
+            strategicInsightsSource = "claude";
+          } catch (claudeErr) {
+            strategicInsightsError = `Gemini: ${geminiMsg} · Claude: ${claudeErr.message || claudeErr}`;
+            strategicInsightsSource = "free_fallback";
+            console.error("[reviews/analyze] Claude도 실패, 무료 로컬 사용:", claudeErr);
+          }
+        } else {
+          strategicInsightsError = geminiMsg;
+          strategicInsightsSource = "free_fallback";
+        }
+      }
+    } else if (!useFreeOnly && hasClaude) {
+      try {
+        const raw = await generateClaudeStrategicInsights(aiPayload);
+        strategicInsights = normalizeInsights(raw);
+        strategicInsightsSource = "claude";
+      } catch (aiErr) {
+        strategicInsightsError = aiErr.message || String(aiErr);
+        strategicInsightsSource = "free_fallback";
+        console.error("[reviews/analyze] Claude 실패, 무료 로컬 인사이트 사용:", strategicInsightsError);
+      }
+    }
 
     res.json({
       meta: {
@@ -109,24 +137,16 @@ router.post("/reviews/analyze", async (req, res) => {
         collectedReviews: scraped.count,
         requestedLimit: safeLimit,
       },
+      strategicInsights,
+      strategicInsightsSource,
+      strategicInsightsError,
       sentimentRatio: {
         positive: positive.length,
         negative: negative.length,
         neutral: neutral.length,
         total: scraped.reviews.length,
       },
-      keywords,
-      consumerVoices,
-      painPoints,
-      pageStructureSuggestion: [
-        "1) 히어로 섹션: 소비자 리얼 보이스 1문장 + 핵심 효능",
-        "2) 효능 근거 섹션: 리뷰 키워드 상위 5개 중심 장점 설명",
-        "3) 사용감/성분 섹션: 발림, 향, 지속력 등 체감 요소 정리",
-        "4) 개선 포인트 대응 섹션: 부정 리뷰 Pain Point 선제 해소",
-        "5) CTA 섹션: 재구매/추천 리뷰 인용 문구로 구매 유도",
-      ],
-      adCopies,
-      sampleReviews: scraped.reviews.slice(0, 10),
+      keywords: keywords.slice(0, 12),
     });
   } catch (err) {
     res.status(500).json({ error: err.message || "리뷰 분석 중 오류가 발생했습니다." });

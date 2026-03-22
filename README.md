@@ -9,12 +9,59 @@
 
 ## 로컬 실행
 
+### Node.js (nvm 권장)
+
+Cursor·일부 터미널에서는 `npm`이 안 보일 수 있습니다. **매 터미널에서 nvm을 먼저 로드**하세요.
+
+```bash
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+```
+
+프로젝트 루트에서 Node 버전 맞추기 (`.nvmrc` = 22):
+
+```bash
+cd oliveyoung-tracker
+nvm install    # 최초 1회: 22 설치
+nvm use
+node -v && npm -v   # 확인
+```
+
+이후 `backend` / `frontend`에서 `npm install`, `npm run dev` 실행하면 됩니다.
+
+**한 번에 실행 (nvm 자동 로드 + 백·프론트 동시):**
+
+```bash
+cd oliveyoung-tracker
+./dev-with-nvm.sh
+```
+
+종료할 때는 터미널에서 `Ctrl+C` 한 번.
+
 ### 환경변수 설정
 
 ```bash
 # frontend/.env.local
 NEXT_PUBLIC_API_URL=http://localhost:4000
 ```
+
+**리뷰 전략 인사이트**는 기본적으로 **비용 없는 로컬 분석**(키워드·패턴 매칭)으로 동작합니다.
+
+**Google AI Studio**에서 발급한 키로 **Gemini**(기본 `gemini-2.5-flash`, 구형 `gemini-1.5-flash`는 API에서 404가 날 수 있음) 분석을 켜면 VDL 전략 장표 형태로 채워집니다. Gemini가 실패했을 때만 선택적으로 **Claude** 키가 2차로 시도됩니다.
+
+```bash
+# backend/.env (선택) — 없으면 무료 모드만 사용
+GEMINI_API_KEY=...           # 또는 GOOGLE_API_KEY=
+# GEMINI_MODEL=gemini-2.5-flash   # 생략 시 자동 폴백 체인 사용
+
+# Gemini 없이/실패 시에만 2차 시도
+# ANTHROPIC_API_KEY=sk-ant-api03-...
+
+# API 키가 있어도 무조건 무료만 쓰려면:
+# USE_FREE_INSIGHTS_ONLY=true
+```
+
+`backend/.env.example` 참고.
 
 ### 백엔드
 
