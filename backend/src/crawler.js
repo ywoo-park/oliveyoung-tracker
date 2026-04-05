@@ -391,8 +391,15 @@ async function fetchReviewsViaCapturedRequest(page, capturedReq, limit) {
     const reqParams = { ...params, [pageKey]: pageNum };
     if (sizeKey) reqParams[sizeKey] = pageSize;
 
+    // 브라우저가 제어하는 헤더(cookie, pseudo-header)는 제외하고 나머지 포착 헤더 전달
+    const extraHeaders = Object.fromEntries(
+      Object.entries(capturedReq.headers).filter(
+        ([k]) => !k.startsWith(":") && k.toLowerCase() !== "cookie" && k.toLowerCase() !== "content-length"
+      )
+    );
+
     const payload = await page.evaluate(
-      async ({ url, method, params: p, isGetReq }) => {
+      async ({ url, method, params: p, isGetReq, extra }) => {
         try {
           let fetchUrl = url;
           let fetchOpts;
@@ -402,13 +409,13 @@ async function fetchReviewsViaCapturedRequest(page, capturedReq, limit) {
             fetchOpts = {
               method: "GET",
               credentials: "include",
-              headers: { accept: "application/json, text/plain, */*" },
+              headers: { accept: "application/json, text/plain, */*", ...extra },
             };
           } else {
             fetchOpts = {
               method: "POST",
               credentials: "include",
-              headers: { "content-type": "application/json", accept: "application/json, text/plain, */*" },
+              headers: { "content-type": "application/json", accept: "application/json, text/plain, */*", ...extra },
               body: JSON.stringify(p),
             };
           }
@@ -419,7 +426,7 @@ async function fetchReviewsViaCapturedRequest(page, capturedReq, limit) {
           return { status: 0, text: "", error: e.message };
         }
       },
-      { url: baseUrl, method: capturedReq.method, params: reqParams, isGetReq: isGet }
+      { url: baseUrl, method: capturedReq.method, params: reqParams, isGetReq: isGet, extra: extraHeaders }
     );
 
     if (payload.error || payload.status === 0) {
@@ -543,6 +550,7 @@ async function newBrowser() {
   return puppeteer.launch({
     headless: true,
     executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+    protocolTimeout: 20000,
     args: [
       "--no-sandbox",
       "--disable-setuid-sandbox",
@@ -627,7 +635,7 @@ async function crawlProductDetail(oliveyoung_id) {
 
 async function fetchRanking(page, url, retries = 3) {
   for (let attempt = 1; attempt <= retries; attempt++) {
-    await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
+    await page.goto(url, { waitUntil: "load", timeout: 30000 });
 
     try {
       await page.waitForFunction(
