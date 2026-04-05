@@ -22,7 +22,7 @@ export default function Nav() {
             className="h-10 w-10 shrink-0 rounded-xl object-cover"
             priority
           />
-          <span className="text-base font-extrabold tracking-tight">BM Insight Tracker</span>
+          <span className="hidden sm:block text-base font-extrabold tracking-tight">BM Insight Tracker</span>
         </Link>
         <div className="flex gap-1">
           {[
@@ -33,7 +33,7 @@ export default function Nav() {
             <Link
               key={href}
               href={href}
-              className={`rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
+              className={`rounded-xl px-3 py-2 text-xs sm:px-4 sm:text-sm font-semibold transition-colors ${
                 href === '/'
                   ? pathname === '/'
                   : pathname.startsWith(href)

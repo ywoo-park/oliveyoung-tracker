@@ -85,7 +85,7 @@ export default function AdminPage() {
       {/* 상품 등록 */}
       <div className="bg-white rounded-2xl p-6 shadow-sm mb-4">
         <h2 className="text-base font-bold text-gray-900 mb-4">상품 등록</h2>
-        <form onSubmit={handleAdd} className="flex gap-2">
+        <form onSubmit={handleAdd} className="flex flex-col sm:flex-row gap-2">
           <input
             type="text"
             value={input}
@@ -116,7 +116,7 @@ export default function AdminPage() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-base font-bold text-gray-900">수동 크롤링</h2>
-            <p className="text-sm text-gray-400 mt-0.5">매시 10분 자동 실행</p>
+            <p className="text-sm text-gray-400 mt-0.5">매 30분 자동 실행</p>
           </div>
           <button
             onClick={handleCrawl}
