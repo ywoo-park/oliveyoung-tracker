@@ -550,6 +550,7 @@ async function newBrowser() {
   return puppeteer.launch({
     headless: true,
     executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+    protocolTimeout: 20000,
     args: [
       "--no-sandbox",
       "--disable-setuid-sandbox",
@@ -634,7 +635,7 @@ async function crawlProductDetail(oliveyoung_id) {
 
 async function fetchRanking(page, url, retries = 3) {
   for (let attempt = 1; attempt <= retries; attempt++) {
-    await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
+    await page.goto(url, { waitUntil: "load", timeout: 30000 });
 
     try {
       await page.waitForFunction(
