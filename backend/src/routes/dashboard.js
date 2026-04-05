@@ -8,73 +8,61 @@ router.get("/rankings/stats", async (req, res) => {
   const { rows: products } = await pool.query("SELECT * FROM products");
 
   const stats = await Promise.all(products.map(async (p) => {
-    const { rows: [best] } = await pool.query(`
-      SELECT rank, to_char(crawled_at, 'YYYY-MM-DD HH24:MI:SS') AS date
-      FROM rankings
-      WHERE product_id = $1 AND category = $2 AND rank IS NOT NULL
-      ORDER BY rank ASC, crawled_at ASC
-      LIMIT 1
-    `, [p.id, category]);
-
-    const { rows: [worst] } = await pool.query(`
-      SELECT rank, to_char(crawled_at, 'YYYY-MM-DD HH24:MI:SS') AS date
-      FROM rankings
-      WHERE product_id = $1 AND category = $2 AND rank IS NOT NULL
-      ORDER BY rank DESC, crawled_at ASC
-      LIMIT 1
-    `, [p.id, category]);
-
-    const { rows: [avg7d] } = await pool.query(`
-      SELECT ROUND(AVG(best_rank)::numeric, 1) AS avg FROM (
-        SELECT crawled_at::date AS d, MIN(rank) AS best_rank
+    const [
+      { rows: [latest] },
+      { rows: [prevDay] },
+      { rows: [prevHour] },
+    ] = await Promise.all([
+      // 현재 순위: 가장 최근 시간대의 MIN(rank)
+      pool.query(`
+        SELECT MIN(rank) AS rank,
+               to_char(MIN(crawled_at) AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD HH24:MI:SS') AS crawled_at
         FROM rankings
         WHERE product_id = $1 AND category = $2 AND rank IS NOT NULL
-          AND crawled_at::date >= (NOW() AT TIME ZONE 'Asia/Seoul' - INTERVAL '7 days')::date
-        GROUP BY d
-      ) t
-    `, [p.id, category]);
+          AND date_trunc('hour', crawled_at AT TIME ZONE 'Asia/Seoul') = (
+            SELECT date_trunc('hour', crawled_at AT TIME ZONE 'Asia/Seoul')
+            FROM rankings
+            WHERE product_id = $1 AND category = $2 AND rank IS NOT NULL
+            ORDER BY crawled_at DESC LIMIT 1
+          )
+      `, [p.id, category]),
 
-    const { rows: [avgPrev7d] } = await pool.query(`
-      SELECT ROUND(AVG(best_rank)::numeric, 1) AS avg FROM (
-        SELECT crawled_at::date AS d, MIN(rank) AS best_rank
+      // 어제 대비: 어제 같은 시간대 MIN(rank)
+      pool.query(`
+        SELECT MIN(rank) AS rank
         FROM rankings
         WHERE product_id = $1 AND category = $2 AND rank IS NOT NULL
-          AND crawled_at::date >= (NOW() AT TIME ZONE 'Asia/Seoul' - INTERVAL '14 days')::date
-          AND crawled_at::date < (NOW() AT TIME ZONE 'Asia/Seoul' - INTERVAL '7 days')::date
-        GROUP BY d
-      ) t
-    `, [p.id, category]);
+          AND date_trunc('hour', crawled_at AT TIME ZONE 'Asia/Seoul') = (
+            SELECT date_trunc('hour', crawled_at AT TIME ZONE 'Asia/Seoul') - INTERVAL '1 day'
+            FROM rankings
+            WHERE product_id = $1 AND category = $2 AND rank IS NOT NULL
+            ORDER BY crawled_at DESC LIMIT 1
+          )
+      `, [p.id, category]),
 
-    const { rows: [tracked] } = await pool.query(`
-      SELECT COUNT(DISTINCT crawled_at::date) AS days
-      FROM rankings
-      WHERE product_id = $1 AND category = $2 AND rank IS NOT NULL
-    `, [p.id, category]);
-
-    const { rows: [latest] } = await pool.query(`
-      SELECT rank, to_char(crawled_at, 'YYYY-MM-DD HH24:MI:SS') AS crawled_at
-      FROM rankings
-      WHERE product_id = $1 AND category = $2
-      ORDER BY crawled_at DESC
-      LIMIT 1
-    `, [p.id, category]);
+      // 1시간 전: 최신 시간대 직전 시간대의 MIN(rank)
+      pool.query(`
+        SELECT MIN(rank) AS rank
+        FROM rankings
+        WHERE product_id = $1 AND category = $2 AND rank IS NOT NULL
+          AND date_trunc('hour', crawled_at AT TIME ZONE 'Asia/Seoul') = (
+            SELECT date_trunc('hour', crawled_at AT TIME ZONE 'Asia/Seoul') - INTERVAL '1 hour'
+            FROM rankings
+            WHERE product_id = $1 AND category = $2 AND rank IS NOT NULL
+            ORDER BY crawled_at DESC LIMIT 1
+          )
+      `, [p.id, category]),
+    ]);
 
     return {
       id: p.id,
       name: p.name,
       oliveyoung_id: p.oliveyoung_id,
       image_url: p.image_url,
-      price: p.price,
-      sale_price: p.sale_price,
-      best_rank: best?.rank ?? null,
-      best_rank_date: best?.date ?? null,
-      worst_rank: worst?.rank ?? null,
-      worst_rank_date: worst?.date ?? null,
-      avg_rank_7d: avg7d?.avg ?? null,
-      avg_rank_prev_7d: avgPrev7d?.avg ?? null,
-      tracked_days: parseInt(tracked?.days ?? 0),
       latest_rank: latest?.rank ?? null,
       latest_crawled_at: latest?.crawled_at ?? null,
+      prev_day_rank: prevDay?.rank ?? null,
+      prev_hour_rank: prevHour?.rank ?? null,
     };
   }));
 
