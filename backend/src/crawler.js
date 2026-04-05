@@ -684,7 +684,15 @@ async function crawlAll() {
     return;
   }
 
-  const browser = await newBrowser();
+  let browser;
+  try {
+    browser = await newBrowser();
+  } catch (err) {
+    console.error("[Crawler] 브라우저 실행 실패:", err.message);
+    await notifyOps(`🔴 브라우저 실행 실패\n\`${err.message}\``);
+    return;
+  }
+
   const page = await setupPage(browser);
 
   // 카테고리별 결과 수집 (순위 요약 알림용)
@@ -693,45 +701,64 @@ async function crawlAll() {
     summaryByProduct[product.id] = { name: product.name, ranks: {} };
   }
 
-  for (const [category, url] of Object.entries(CATEGORIES)) {
-    try {
-      const rankings = await fetchRanking(page, url);
-      const count = Object.keys(rankings).length;
-      console.log(`[Crawler] ${category} 파싱 완료 - ${count}개`);
+  try {
+    for (const [category, url] of Object.entries(CATEGORIES)) {
+      try {
+        const rankings = await fetchRanking(page, url);
+        const count = Object.keys(rankings).length;
+        console.log(`[Crawler] ${category} 파싱 완료 - ${count}개`);
 
-      if (count === 0) {
-        await notifyOps(`⚠️ *${category}* 카테고리 파싱 결과 0개`);
-      }
+        if (count === 0) {
+          await notifyOps(`⚠️ *${category}* 카테고리 파싱 결과 0개`);
+        }
 
-      for (const product of products) {
-        const rank = rankings[product.oliveyoung_id] ?? null;
-        await pool.query(
-          "INSERT INTO rankings (product_id, category, rank) VALUES ($1, $2, $3)",
-          [product.id, category, rank]
-        );
-        console.log(`[Crawler] ${category} - ${product.oliveyoung_id}: ${rank ?? "순위권 밖"}`);
-        summaryByProduct[product.id].ranks[category] = rank;
+        for (const product of products) {
+          const rank = rankings[product.oliveyoung_id] ?? null;
+
+          // 같은 시간대(hour)에 이미 데이터가 있으면 skip (30분 주기 중복 방지)
+          const { rows: existing } = await pool.query(`
+            SELECT 1 FROM rankings
+            WHERE product_id = $1 AND category = $2
+              AND date_trunc('hour', crawled_at AT TIME ZONE 'Asia/Seoul')
+                = date_trunc('hour', NOW() AT TIME ZONE 'Asia/Seoul')
+            LIMIT 1
+          `, [product.id, category]);
+
+          if (existing.length > 0) {
+            console.log(`[Crawler] ${category} - ${product.oliveyoung_id}: 이번 시간대 데이터 존재, skip`);
+            summaryByProduct[product.id].ranks[category] = rank;
+            continue;
+          }
+
+          await pool.query(
+            "INSERT INTO rankings (product_id, category, rank) VALUES ($1, $2, $3)",
+            [product.id, category, rank]
+          );
+          console.log(`[Crawler] ${category} - ${product.oliveyoung_id}: ${rank ?? "순위권 밖"}`);
+          summaryByProduct[product.id].ranks[category] = rank;
+        }
+      } catch (err) {
+        console.error(`[Crawler] ${category} 크롤링 실패:`, err.message);
+        await notifyOps(`🔴 *${category}* 카테고리 크롤링 실패\n\`${err.message}\``);
       }
-    } catch (err) {
-      console.error(`[Crawler] ${category} 크롤링 실패:`, err.message);
-      await notifyOps(`🔴 *${category}* 카테고리 크롤링 실패\n\`${err.message}\``);
     }
+
+    const elapsed = Math.round((Date.now() - startedAt) / 1000);
+    console.log("[Crawler] 랭킹 크롤링 완료");
+    await notifyOps(`✅ 크롤링 완료 (소요: ${elapsed}초)`);
+
+    const categoryNames = Object.keys(CATEGORIES);
+    const summaryLines = Object.values(summaryByProduct).map(({ name, ranks }) => {
+      const rankText = categoryNames.map((cat) => {
+        const r = ranks[cat];
+        return `${cat}: ${r != null ? `${r}위` : "순위권 밖"}`;
+      }).join(" | ");
+      return `• *${name}* — ${rankText}`;
+    });
+    await notifyRanking(`📊 *랭킹 요약* (${new Date().toLocaleString("ko-KR")})\n${summaryLines.join("\n")}`);
+  } finally {
+    await browser.close().catch((e) => console.warn("[Crawler] 브라우저 종료 실패:", e.message));
   }
-
-  await browser.close();
-  const elapsed = Math.round((Date.now() - startedAt) / 1000);
-  console.log("[Crawler] 랭킹 크롤링 완료");
-  await notifyOps(`✅ 크롤링 완료 (소요: ${elapsed}초)`);
-
-  const categoryNames = Object.keys(CATEGORIES);
-  const summaryLines = Object.values(summaryByProduct).map(({ name, ranks }) => {
-    const rankText = categoryNames.map((cat) => {
-      const r = ranks[cat];
-      return `${cat}: ${r != null ? `${r}위` : "순위권 밖"}`;
-    }).join(" | ");
-    return `• *${name}* — ${rankText}`;
-  });
-  await notifyRanking(`📊 *랭킹 요약* (${new Date().toLocaleString("ko-KR")})\n${summaryLines.join("\n")}`);
 }
 
 function extractGoodsNoFromUrl(url) {

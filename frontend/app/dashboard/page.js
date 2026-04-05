@@ -52,7 +52,10 @@ function SummaryBanner({ stats, loading }) {
     return (
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         {[...Array(4)].map((_, i) => (
-          <div key={i} className="bg-white rounded-2xl px-6 py-5 shadow-sm animate-pulse h-20" />
+          <div key={i} className="bg-white rounded-2xl px-6 py-5 shadow-sm animate-pulse">
+            <div className="h-3 bg-gray-200 rounded-md w-16 mb-3" />
+            <div className="h-8 bg-gray-200 rounded-md w-12" />
+          </div>
         ))}
       </div>
     );
@@ -96,20 +99,27 @@ function SummaryBanner({ stats, loading }) {
 function SkeletonCard() {
   return (
     <div className="bg-white rounded-2xl p-5 shadow-sm animate-pulse flex flex-col gap-4">
-      {/* 이미지 + 이름 */}
       <div className="flex gap-3">
-        <div className="w-11 h-11 rounded-xl bg-gray-100 flex-shrink-0" />
+        <div className="w-11 h-11 rounded-xl bg-gray-200 flex-shrink-0" />
         <div className="flex-1 space-y-2 pt-1">
-          <div className="h-3.5 bg-gray-100 rounded-lg w-3/4" />
-          <div className="h-3 bg-gray-100 rounded-lg w-1/2" />
+          <div className="h-3.5 bg-gray-200 rounded-lg w-3/4" />
+          <div className="h-3 bg-gray-200 rounded-lg w-1/2" />
         </div>
       </div>
-      {/* 순위 배지 */}
-      <div className="h-24 bg-gray-100 rounded-xl" />
-      {/* 어제 대비 / 1시간 전 */}
+      <div className="rounded-xl bg-gray-100 px-5 py-4 flex flex-col items-center gap-2">
+        <div className="h-2.5 bg-gray-200 rounded w-14" />
+        <div className="h-10 bg-gray-200 rounded-lg w-20 mt-1" />
+        <div className="h-2 bg-gray-200 rounded w-16" />
+      </div>
       <div className="grid grid-cols-2 gap-2">
-        <div className="h-14 bg-gray-100 rounded-xl" />
-        <div className="h-14 bg-gray-100 rounded-xl" />
+        <div className="bg-gray-50 rounded-xl py-3 flex flex-col items-center gap-2">
+          <div className="h-5 bg-gray-200 rounded w-8" />
+          <div className="h-2.5 bg-gray-200 rounded w-12" />
+        </div>
+        <div className="bg-gray-50 rounded-xl py-3 flex flex-col items-center gap-2">
+          <div className="h-5 bg-gray-200 rounded w-8" />
+          <div className="h-2.5 bg-gray-200 rounded w-12" />
+        </div>
       </div>
     </div>
   );
@@ -218,10 +228,29 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* 차트 스켈레톤 */}
+      {loading && (
+        <div className="bg-white rounded-2xl p-6 shadow-sm animate-pulse">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <div className="space-y-2">
+              <div className="h-4 bg-gray-200 rounded w-20" />
+              <div className="h-3 bg-gray-200 rounded w-32" />
+            </div>
+            <div className="flex gap-1">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="h-7 w-12 bg-gray-200 rounded-lg" />
+              ))}
+            </div>
+          </div>
+          <div className="h-3 bg-gray-200 rounded w-24 mb-5" />
+          <div className="h-64 bg-gray-100 rounded-xl" />
+        </div>
+      )}
+
       {/* 차트 */}
       {!loading && stats.length > 0 && (
         <div className="bg-white rounded-2xl p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
             <div>
               <h2 className="text-base font-extrabold text-gray-900">순위 추이</h2>
               {selectedProductId && (
@@ -236,13 +265,13 @@ export default function DashboardPage() {
                 <p className="text-xs text-gray-400 mt-0.5">카드 클릭 시 해당 상품만 표시</p>
               )}
             </div>
-            {/* 기간 필터 — 차트 우측 */}
+            {/* 기간 필터 */}
             <div className="flex gap-1">
               {PRESETS.map((p) => (
                 <button
                   key={p.label}
                   onClick={() => setPreset(p)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                  className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
                     preset.label === p.label
                       ? 'bg-mood-celery text-mood-feather shadow-sm'
                       : 'bg-gray-100 text-gray-600 hover:bg-gray-200'

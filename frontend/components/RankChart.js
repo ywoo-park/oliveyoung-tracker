@@ -41,8 +41,8 @@ export default function RankChart({ data, products, mode = 'daily' }) {
   if (!data.length || !products.length) return null;
 
   return (
-    <ResponsiveContainer width="100%" height={320}>
-      <LineChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+    <ResponsiveContainer width="100%" height={260}>
+      <LineChart data={data} margin={{ top: 5, right: 4, left: 0, bottom: 5 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#E8EDE4" vertical={false} />
         <XAxis
           dataKey="time"
@@ -55,11 +55,11 @@ export default function RankChart({ data, products, mode = 'daily' }) {
         <YAxis
           reversed
           domain={[1, (dataMax) => dataMax + 5]}
-          tick={{ fontSize: 11, fill: '#AAAAAA' }}
+          tick={{ fontSize: 10, fill: '#AAAAAA' }}
           axisLine={false}
           tickLine={false}
           tickFormatter={(v) => `${v}위`}
-          width={48}
+          width={36}
         />
         <Tooltip content={<CustomTooltip mode={mode} />} />
         <Legend
