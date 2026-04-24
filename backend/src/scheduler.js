@@ -1,17 +1,6 @@
-const cron = require("node-cron");
-const { crawlAll } = require("./crawler");
-
-// 매시 10분 실행
+// 랭킹 크롤링 오류 지속으로 스케줄러 비활성화
 function startScheduler() {
-  cron.schedule("*/30 * * * *", async () => {
-    try {
-      await crawlAll();
-    } catch (err) {
-      console.error("[Scheduler] crawlAll 예외:", err.message);
-    }
-  }, { timezone: "Asia/Seoul" });
-
-  console.log("[Scheduler] 스케줄러 시작 (매시 10분)");
+  console.log("[Scheduler] 랭킹 크롤링 스케줄러 비활성화 상태");
 }
 
 module.exports = { startScheduler };
