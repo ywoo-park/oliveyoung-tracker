@@ -72,7 +72,7 @@ router.get("/rankings/stats", async (req, res) => {
 // 시간별 순위 (당일/특정일 차트용)
 router.get("/rankings/hourly", async (req, res) => {
   const { category = "전체", date } = req.query;
-  const targetDate = date || new Date().toLocaleDateString("sv-SE");
+  const targetDate = date || new Date().toLocaleString("sv-SE", { timeZone: "Asia/Seoul" }).slice(0, 10);
 
   const { rows } = await pool.query(`
     SELECT p.id AS product_id, p.name, p.oliveyoung_id,
